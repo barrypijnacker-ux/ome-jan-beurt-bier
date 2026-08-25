@@ -1,0 +1,1844 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<title>Ome Jan Beurtbier</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
+/>
+<style>
+  :root {
+    --red: #d2122e;
+    --red-dark: #7a0c1d;
+    --red-bright: #ff3b52;
+    --ink: #17161b;
+    --paper: #f6f3ec;
+    --paper-2: #ece7d9;
+    --line: #e3dfd3;
+    --gold: #e8a93b;
+    --muted: #8b8880;
+    --white: #ffffff;
+    --good: #16a34a;
+    --shadow: 0 12px 30px -14px rgba(23, 22, 27, 0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #0e0d11;
+    min-height: 100vh;
+  }
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    color: var(--ink);
+    display: flex;
+    justify-content: center;
+    padding: 28px 14px 56px;
+  }
+  button, input, select { font-family: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .spin { animation: bb-spin 0.85s linear infinite; }
+  @keyframes bb-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .spin { animation-duration: 2.4s; }
+  }
+  .live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red-bright); flex-shrink: 0; animation: bb-pulse 1.4s ease-in-out infinite; }
+  @keyframes bb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot { animation: none; }
+  }
+
+  #app {
+    width: 100%;
+    max-width: 460px;
+  }
+  .shell {
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+
+  /* ---- onboarding ---- */
+  .onboard { padding: 3rem 1.75rem; text-align: center; }
+  .onboard-badge {
+    font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 1.6px;
+    color: var(--red); font-weight: 700; margin-bottom: 10px;
+  }
+  .onboard-title {
+    font-family: "Oswald", sans-serif; font-size: 34px; font-weight: 700; margin: 0;
+    text-transform: uppercase; letter-spacing: 0.5px; text-wrap: balance;
+  }
+  .onboard-sub { color: var(--muted); font-size: 14px; margin: 8px 0 24px; }
+  .onboard-input {
+    width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line);
+    font-size: 15px; margin-bottom: 12px; background: var(--white); color: var(--ink);
+  }
+  .onboard-note { font-size: 12px; color: var(--muted); margin-top: 16px; line-height: 1.55; }
+  .onboard-picklist { display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto; }
+  .onboard-pick-btn {
+    padding: 12px 16px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--white);
+    font-size: 15px; font-weight: 600; color: var(--ink); text-align: left;
+  }
+  .onboard-pick-btn:hover { border-color: var(--red); }
+  .diag {
+    margin-top: 20px; max-width: 320px; margin-left: auto; margin-right: auto; text-align: left;
+    font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px;
+  }
+  .diag summary { cursor: pointer; font-weight: 600; font-size: 11.5px; }
+  .diag-content { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; font-family: "JetBrains Mono", monospace; font-size: 10.5px; }
+
+  .btn-primary {
+    width: 100%; background: var(--red); color: #fff; border: none; border-radius: 8px; padding: 12px 16px;
+    font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: default; }
+
+  /* ---- header / tabs ---- */
+  .header {
+    display: flex; align-items: center; justify-content: space-between; padding: 16px 18px;
+    background: var(--ink); color: #fff; gap: 10px;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .header-eyebrow { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 1.2px; color: var(--gold); font-weight: 700; }
+  .header-title { font-family: "Oswald", sans-serif; font-size: 20px; font-weight: 700; text-transform: uppercase; }
+  .header-me { font-size: 12px; background: rgba(255,255,255,0.12); padding: 5px 10px; border-radius: 20px; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+  .test-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #3a2e00;
+    color: var(--gold); padding: 8px 16px; font-size: 12.5px; font-weight: 600;
+  }
+  .test-banner-btn { background: var(--gold); color: #3a2e00; border: none; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .tabbar { display: flex; border-bottom: 1px solid var(--line); background: #fff; overflow-x: auto; }
+  .tab-btn {
+    flex: 1 1 auto; min-width: 0; padding: 11px 4px; background: none; border: none; font-size: 11px; color: var(--muted); font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 3px; border-bottom: 2px solid transparent; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
+  .main { padding: 18px 16px 28px; min-height: 200px; }
+
+  .section-head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+  .section-head {
+    font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 1px; color: var(--muted);
+    text-transform: uppercase; font-weight: 700; margin: 18px 0 10px;
+  }
+  .section-head:first-child { margin-top: 0; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .form-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .input {
+    flex: 1; min-width: 0; padding: 9px 11px; border-radius: 7px; border: 1px solid var(--line);
+    font-size: 14px; background: #fff; color: var(--ink);
+  }
+  .toggle-group { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .toggle-btn { padding: 9px 14px; background: #fff; border: none; font-size: 13px; color: var(--muted); }
+  .toggle-btn.active { background: var(--red); color: #fff; }
+  .btn-primary-sm { background: var(--red); color: #fff; border: none; border-radius: 7px; padding: 9px 16px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary-sm:disabled { opacity: 0.5; }
+  .btn-ghost-sm {
+    display: inline-flex; align-items: center; gap: 5px; background: none; border: 1px solid var(--line); border-radius: 7px;
+    padding: 7px 11px; font-size: 12.5px; color: var(--ink); font-weight: 500;
+  }
+  .empty-state { text-align: center; padding: 2rem 1rem; border: 1px dashed var(--line); border-radius: 10px; }
+  .empty-title { font-weight: 600; margin: 0 0 4px; }
+  .empty-body { font-size: 13px; color: var(--muted); margin: 0; }
+
+  .match-list { display: flex; flex-direction: column; gap: 8px; }
+  .match-row {
+    display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; text-align: left; width: 100%;
+  }
+  .match-row:hover { border-color: var(--red); }
+  .match-date-box {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; width: 44px; height: 44px;
+    background: var(--ink); color: #fff; border-radius: 8px; flex-shrink: 0;
+  }
+  .match-date-num { font-family: "Oswald", sans-serif; font-size: 17px; font-weight: 700; line-height: 1; }
+  .match-date-mon { font-family: "JetBrains Mono", monospace; font-size: 9px; text-transform: uppercase; color: var(--gold); }
+  .match-opponent { font-weight: 600; font-size: 14.5px; }
+  .match-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .match-row-body { flex: 1; text-align: left; min-width: 0; }
+
+  .match-detail-head { margin-bottom: 12px; }
+  .head-badge { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--red); font-weight: 700; letter-spacing: 0.5px; }
+  .match-detail-title { font-family: "Oswald", sans-serif; font-size: 22px; font-weight: 700; margin: 4px 0 2px; text-transform: uppercase; text-wrap: balance; }
+  .match-detail-date { font-size: 13px; color: var(--muted); text-transform: capitalize; }
+  .match-switch-row { display: flex; justify-content: flex-end; margin-bottom: 2px; }
+  .match-switch-select {
+    max-width: 220px; padding: 5px 8px; border-radius: 20px; border: 1px solid var(--line); background: #fff;
+    font-size: 11.5px; color: var(--muted); font-weight: 500;
+  }
+
+  .stat-row { display: flex; gap: 8px; margin-bottom: 6px; }
+  .stat-box { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 10px 8px; text-align: center; }
+  .stat-box.warn { border-color: var(--red); background: #fff7f5; }
+  .stat-num { font-family: "JetBrains Mono", monospace; font-size: 20px; font-weight: 700; color: var(--red); font-variant-numeric: tabular-nums; }
+  .stat-label { font-size: 10.5px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .roster-list { display: flex; flex-direction: column; gap: 6px; }
+  .roster-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; flex-wrap: wrap; }
+  .roster-row.me { border-color: var(--red); background: #fff7f5; }
+  .roster-row.winner { border-color: var(--good); background: #f0faf3; border-width: 2px; }
+  .roster-row.winner .roster-name { font-weight: 700; }
+  .checkbox {
+    width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--line); background: #fff;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; padding: 0;
+  }
+  .checkbox.on { background: var(--red); border-color: var(--red); }
+  .checkbox:disabled { opacity: 0.45; }
+  .checkbox-dark {
+    width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.3); background: transparent;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; padding: 0;
+  }
+  .checkbox-dark.on { background: var(--red); border-color: var(--red); }
+  .roster-name { flex: 1; font-size: 14px; font-weight: 500; min-width: 60px; }
+  .beer-stepper { display: flex; align-items: center; gap: 8px; }
+  .step-btn {
+    width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--line); background: #fff; font-size: 15px;
+    display: flex; align-items: center; justify-content: center; line-height: 1; color: var(--ink); padding: 0;
+  }
+  .step-btn-light {
+    width: 30px; height: 30px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08);
+    font-size: 17px; display: flex; align-items: center; justify-content: center; line-height: 1; color: #fff; padding: 0;
+  }
+  .step-btn-light-sm {
+    width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08);
+    font-size: 14px; display: flex; align-items: center; justify-content: center; line-height: 1; color: #fff; padding: 0;
+  }
+  .step-btn:disabled, .step-btn-light:disabled, .step-btn-light-sm:disabled { opacity: 0.35; }
+  .beer-count { font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 14px; min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .scoreboard { background: var(--ink); border-radius: 10px; padding: 16px; margin-bottom: 6px; }
+  .scoreboard-hint { color: rgba(255,255,255,0.6); font-size: 12.5px; text-align: center; margin-bottom: 10px; }
+  .spin-name { font-family: "JetBrains Mono", monospace; color: var(--gold); font-size: 22px; font-weight: 700; text-align: center; padding: 10px 0; letter-spacing: 0.5px; }
+  .progress-note { color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 600; text-align: center; margin-bottom: 4px; }
+  .progress-bar-track { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; margin-bottom: 10px; }
+  .progress-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; }
+  .pending-names-note { color: rgba(255,255,255,0.55); font-size: 11.5px; text-align: center; margin-bottom: 10px; line-height: 1.5; }
+  .wheel-warn { font-size: 11.5px; color: var(--gold); margin-top: 8px; line-height: 1.4; text-align: center; }
+  .pending-card { text-align: center; padding: 4px 0 6px; }
+  .pending-label { font-family: "Oswald", sans-serif; color: #fff; font-size: 19px; font-weight: 700; text-transform: uppercase; text-wrap: balance; }
+  .pending-sub { color: rgba(255,255,255,0.65); font-size: 12.5px; margin-top: 3px; }
+  .pending-count { font-family: "JetBrains Mono", monospace; color: var(--gold); font-weight: 700; font-size: 22px; min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
+  .pending-count-sm { font-family: "JetBrains Mono", monospace; color: #fff; font-weight: 700; font-size: 14px; min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+  .hauler-block { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 12px; }
+  .hauler-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hauler-name { color: #fff; font-size: 13.5px; font-weight: 600; }
+  .empty-cups-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+  .empty-cups-label { color: rgba(255,255,255,0.6); font-size: 11.5px; text-align: left; flex: 1; }
+  .haul-returns-block { margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.15); }
+  .haul-returns-title { color: rgba(255,255,255,0.75); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+  .return-row-dark { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+  .return-name-dark { flex: 1; color: #fff; font-size: 13px; }
+  .btn-ghost-dark {
+    flex: 1; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px; padding: 11px 0; font-size: 13.5px; font-weight: 500;
+  }
+  .btn-draw {
+    flex: 2; width: 100%; background: var(--red); color: #fff; border: none; border-radius: 8px; padding: 11px 0;
+    font-size: 14.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .btn-draw:disabled { opacity: 0.4; }
+  .btn-draw-xl {
+    width: 100%; background: var(--red); color: #fff; border: none; border-radius: 12px; padding: 17px 0;
+    font-size: 16.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 9px;
+    box-shadow: 0 8px 20px -8px rgba(210,18,46,0.55);
+  }
+  .btn-draw-xl:disabled { opacity: 0.35; box-shadow: none; }
+  .reveal-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .reveal-item {
+    font-family: "JetBrains Mono", monospace; color: #fff; font-size: 12.5px; background: rgba(255,255,255,0.06);
+    border-radius: 6px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .icon-btn-dark {
+    width: 22px; height: 22px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); background: transparent;
+    display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.6); flex-shrink: 0; padding: 0;
+  }
+
+  .info-note { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.55; }
+  .info-note svg { vertical-align: -2px; margin-right: 4px; }
+  .settle-list { display: flex; flex-direction: column; gap: 6px; }
+  .settle-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; }
+  .settle-name { font-weight: 600; font-size: 14px; }
+  .settle-meta { font-size: 11.5px; color: var(--muted); }
+  .settle-amount { font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 15px; color: var(--red); font-variant-numeric: tabular-nums; margin-left: auto; }
+  .icon-btn {
+    width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--line); background: #fff;
+    display: flex; align-items: center; justify-content: center; color: var(--ink); flex-shrink: 0; padding: 0;
+  }
+
+  .stand-table { background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; overflow-x: auto; }
+  .stand-head-row { display: flex; padding: 9px 12px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--line); font-weight: 700; min-width: 320px; }
+  .stand-row { display: flex; padding: 10px 12px; font-size: 13.5px; border-bottom: 1px solid var(--line); min-width: 320px; }
+  .stand-row:last-child { border-bottom: none; }
+  .stand-col { width: 66px; text-align: center; font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+  .stand-name { flex: 1; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .rank-badge { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted); width: 16px; }
+
+  .member-chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .member-chip { display: flex; align-items: center; gap: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 5px 6px 5px 12px; font-size: 13px; }
+  .test-pick-chip { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 600; }
+  .chip-remove { width: 18px; height: 18px; border-radius: 50%; border: none; background: var(--line); display: flex; align-items: center; justify-content: center; padding: 0; }
+  .field-label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  .manage-match-block { border-bottom: 1px solid var(--line); padding: 2px 0 6px; }
+  .manage-match-block:last-child { border-bottom: none; }
+  .manage-match-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 4px; font-size: 13px; gap: 8px; }
+  .manage-match-detail-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 2px 0 6px; }
+  .manage-match-label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); font-weight: 500; }
+  .input-tiny { width: 92px; padding: 5px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12.5px; }
+  .input-score { width: 44px; padding: 5px 4px; border-radius: 6px; border: 1px solid var(--line); font-size: 12.5px; text-align: center; }
+  .predict-score-row { display: flex; align-items: center; gap: 2px; }
+  .predict-final-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .predict-win-badge { font-size: 11px; font-weight: 700; color: #fff; background: var(--good); padding: 2px 7px; border-radius: 10px; margin-left: 6px; white-space: nowrap; }
+  .predict-loss-badge { font-size: 11px; font-weight: 500; color: var(--muted); background: var(--paper); padding: 2px 7px; border-radius: 10px; margin-left: 6px; white-space: nowrap; }
+
+  .cta-stack { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+  .cta-card { display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; }
+  .cta-card.active { border-color: var(--red); background: #fff7f5; }
+  .cta-checkbox { width: 30px; height: 30px; border-radius: 8px; margin-top: 1px; }
+  .cta-text-wrap { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .cta-title { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .cta-sub { font-size: 12px; color: var(--muted); }
+  .cta-icon { color: var(--red); flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 3px; }
+  .cta-icon.dim { opacity: 0.35; }
+  .cta-pair { display: flex; gap: 8px; }
+  .cta-pair .cta-card { flex: 1; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 14px 10px; }
+  .cta-pair .cta-icon { margin-top: 0; }
+
+  .loading-wrap { display: flex; align-items: center; justify-content: center; padding: 3rem 0; color: var(--muted); font-size: 14px; }
+  .loading-wrap svg { color: var(--red); margin-right: 8px; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<!-- Supabase-client (moet vóór het app-script hieronder geladen zijn). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ================= pure helpers ================= */
+  var uid = function () { return Math.random().toString(36).slice(2, 10); };
+  var euro = function (n) { return "€" + (Math.round((n || 0) * 100) / 100).toFixed(2).replace(".", ","); };
+  var euroSigned = function (n) { var r = Math.round((n || 0) * 100) / 100; return (r < -0.001 ? "-" : r > 0.001 ? "+" : "") + euro(Math.abs(r)); };
+  var esc = function (s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  };
+  var clamp0 = function (n) { return Math.max(0, n || 0); };
+  var clone = function (o) {
+    if (typeof structuredClone === "function") return structuredClone(o);
+    return JSON.parse(JSON.stringify(o));
+  };
+  var sleep = function (ms) { return new Promise(function (res) { setTimeout(res, ms); }); };
+
+  function weightedPick(candidates, weights) {
+    var total = weights.reduce(function (a, b) { return a + b; }, 0);
+    var r = Math.random() * total;
+    for (var i = 0; i < candidates.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return i;
+    }
+    return candidates.length - 1;
+  }
+
+  function roundHalers(round) {
+    return (round && round.halers) || [];
+  }
+
+  function getNextMatchId(matches) {
+    if (!matches || matches.length === 0) return null;
+    var now = Date.now();
+    var withTs = matches.map(function (m) {
+      return { id: m.id, ts: new Date(m.date + "T" + (m.time || "14:30") + ":00").getTime() };
+    });
+    var upcoming = withTs.filter(function (m) { return m.ts >= now - 4 * 60 * 60 * 1000; });
+    if (upcoming.length > 0) {
+      upcoming.sort(function (a, b) { return a.ts - b.ts; });
+      return upcoming[0].id;
+    }
+    withTs.sort(function (a, b) { return b.ts - a.ts; });
+    return withTs[0].id;
+  }
+
+  // Geschatte eindtijd (aftrap + speeltijd incl. rust/blessuretijd, standaard 2 uur,
+  // per wedstrijd aan te passen bij Instellingen) — gebruikt om vlak voor het einde
+  // een duidelijk inleverpunt voor de lege bekers aan te wijzen.
+  function estimatedEndMs(match) {
+    if (!match || !match.date) return null;
+    var kickoffMs = new Date(match.date + "T" + (match.time || "14:30") + ":00").getTime();
+    return kickoffMs + (match.estimatedDurationMin || 120) * 60 * 1000;
+  }
+
+  // Eén nettobedrag per persoon: content (bier), statiegeld voorgeschoten/ontvangen,
+  // kwijtgeraakte bekers eerlijk verdeeld, en de gok-vrijstelling voor wie de
+  // exacte eindstand goed had. Positief = de groep is dit aan hen verschuldigd.
+  function computeNetBalances(checkins, rounds, returns, settings, predictions, finalScore, finalScoreAt) {
+    var price = settings.pricePerBeer || 0;
+    var deposit = settings.depositPerCup != null ? settings.depositPerCup : 1;
+    var attendeeIds = checkins;
+    var net = {};
+    var matchNet = {};
+    var ensure = function (obj, id) { if (obj[id] === undefined) obj[id] = 0; };
+    // Volledige, controleerbare optelling per persoon — dezelfde getallen die
+    // in `net` verdwijnen, maar hier uitgesplitst zodat iedereen kan natellen
+    // waar het nettobedrag vandaan komt (zie "Financiële afrekening").
+    var breakdown = {};
+    var ensureBk = function (id) {
+      if (!breakdown[id]) breakdown[id] = { haaldeBeker: 0, haaldeCredit: 0, dronkBeker: 0, dronkDebit: 0, statiegeldTerugCups: 0, statiegeldTerugDebit: 0, kwijtAandeel: 0, gokAdjust: 0 };
+      return breakdown[id];
+    };
+    var totalBought = 0;
+    rounds.forEach(function (round) {
+      var isMatchRound = !finalScoreAt || (round.ts || 0) < finalScoreAt;
+      var halers = roundHalers(round);
+      var brought = halers.reduce(function (s, h) { return s + (h.broughtBack || 0); }, 0);
+      totalBought += brought;
+      halers.forEach(function (h) {
+        ensure(net, h.personId);
+        net[h.personId] += (h.broughtBack || 0) * (price + deposit);
+        if (isMatchRound) { ensure(matchNet, h.personId); matchNet[h.personId] += (h.broughtBack || 0) * (price + deposit); }
+        var bk = ensureBk(h.personId);
+        bk.haaldeBeker += h.broughtBack || 0;
+        bk.haaldeCredit += (h.broughtBack || 0) * (price + deposit);
+      });
+      var queue = [];
+      (round.wanters || []).forEach(function (w) { for (var i = 0; i < w.qty; i++) queue.push(w.personId); });
+      var idx = 0;
+      for (var i2 = 0; i2 < brought && idx < queue.length; i2++, idx++) {
+        var pid = queue[idx];
+        ensure(net, pid); net[pid] -= price;
+        if (isMatchRound) { ensure(matchNet, pid); matchNet[pid] -= price; }
+        var bkD = ensureBk(pid);
+        bkD.dronkBeker += 1;
+        bkD.dronkDebit -= price;
+      }
+    });
+    var returnEntries = Object.entries(returns || {});
+    var totalReturned = returnEntries.reduce(function (s, e) { return s + (e[1] || 0); }, 0);
+    var lostCups = Math.max(0, totalBought - totalReturned);
+    var lostShare = attendeeIds.length ? (lostCups * deposit) / attendeeIds.length : 0;
+    returnEntries.forEach(function (e) {
+      ensure(net, e[0]); net[e[0]] -= (e[1] || 0) * deposit;
+      var bk = ensureBk(e[0]);
+      bk.statiegeldTerugCups += e[1] || 0;
+      bk.statiegeldTerugDebit -= (e[1] || 0) * deposit;
+    });
+    attendeeIds.forEach(function (pid) {
+      ensure(net, pid); net[pid] -= lostShare;
+      ensureBk(pid).kwijtAandeel -= lostShare;
+    });
+
+    var predEntries = Object.entries(predictions || {});
+    var winnerIds = [], loserIds = [];
+    if (finalScore && predEntries.length > 0) {
+      predEntries.forEach(function (e) {
+        var p = e[1];
+        if (p && p.home === finalScore.home && p.away === finalScore.away) winnerIds.push(e[0]);
+        else loserIds.push(e[0]);
+      });
+    }
+    var forgivenTotal = 0;
+    if (winnerIds.length > 0 && loserIds.length > 0) {
+      winnerIds.forEach(function (pid) {
+        var matchDebt = matchNet[pid] || 0;
+        if (matchDebt < 0) { forgivenTotal += -matchDebt; ensure(net, pid); net[pid] -= matchDebt; ensureBk(pid).gokAdjust -= matchDebt; }
+      });
+      var perLoser = forgivenTotal / loserIds.length;
+      loserIds.forEach(function (pid) { ensure(net, pid); net[pid] -= perLoser; ensureBk(pid).gokAdjust -= perLoser; });
+    }
+    return { net: net, breakdown: breakdown, totalBought: totalBought, totalReturned: totalReturned, lostCups: lostCups, lostShare: lostShare, winnerIds: winnerIds, loserIds: loserIds, forgivenTotal: forgivenTotal };
+  }
+
+  function computeDrunkSoFar(rounds) {
+    var drunk = {};
+    rounds.forEach(function (round) {
+      var brought = roundHalers(round).reduce(function (s, h) { return s + (h.broughtBack || 0); }, 0);
+      var queue = [];
+      (round.wanters || []).forEach(function (w) { for (var i = 0; i < w.qty; i++) queue.push(w.personId); });
+      for (var i = 0; i < brought && i < queue.length; i++) drunk[queue[i]] = (drunk[queue[i]] || 0) + 1;
+    });
+    return drunk;
+  }
+
+  function settleNet(net) {
+    var creditors = [], debtors = [];
+    Object.entries(net).forEach(function (e) {
+      var r = Math.round(e[1] * 100) / 100;
+      if (r > 0.005) creditors.push({ id: e[0], amt: r });
+      else if (r < -0.005) debtors.push({ id: e[0], amt: -r });
+    });
+    creditors.sort(function (a, b) { return b.amt - a.amt; });
+    debtors.sort(function (a, b) { return b.amt - a.amt; });
+    var transactions = [], i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      var pay = Math.min(debtors[i].amt, creditors[j].amt);
+      if (pay > 0.005) transactions.push({ from: debtors[i].id, to: creditors[j].id, amount: pay });
+      debtors[i].amt -= pay; creditors[j].amt -= pay;
+      if (debtors[i].amt <= 0.005) i++;
+      if (creditors[j].amt <= 0.005) j++;
+    }
+    return transactions;
+  }
+
+  // Verdeelt wie-levert-bekers-in-bij-wie eerlijk over de gelijktijdige halers,
+  // zodat twee halers nooit dezelfde naam allebei kunnen afvinken: elke naam
+  // hoort structureel bij precies één van hen. Puur en deterministisch (zelfde
+  // input -> zelfde verdeling), dus beide halers zien exact dezelfde toewijzing.
+  function partitionReturnCandidates(checkins, halerIds) {
+    var candidates = checkins.filter(function (pid) { return halerIds.indexOf(pid) === -1; });
+    var groups = halerIds.map(function () { return []; });
+    candidates.forEach(function (pid, i) { groups[i % halerIds.length].push(pid); });
+    return groups;
+  }
+
+  /* ================= AZ fixtures ================= */
+  var AZ_HOME_FIXTURES_2026_27 = [
+    { date: "2026-08-08", opponent: "ADO Den Haag" },
+    { date: "2026-08-29", opponent: "Go Ahead Eagles" },
+    { date: "2026-09-11", opponent: "Willem II" },
+    { date: "2026-09-20", opponent: "Telstar" },
+    { date: "2026-10-25", opponent: "FC Twente" },
+    { date: "2026-11-08", opponent: "FC Groningen" },
+    { date: "2026-12-05", opponent: "PSV", approx: true },
+    { date: "2026-12-12", opponent: "NEC", approx: true },
+    { date: "2027-01-09", opponent: "sc Heerenveen" },
+    { date: "2027-01-23", opponent: "FC Utrecht", approx: true },
+    { date: "2027-01-30", opponent: "Feyenoord", approx: true },
+    { date: "2027-02-20", opponent: "Fortuna Sittard", approx: true },
+    { date: "2027-03-13", opponent: "Sparta Rotterdam", approx: true },
+    { date: "2027-03-20", opponent: "Excelsior", approx: true },
+    { date: "2027-04-24", opponent: "SC Cambuur", approx: true },
+    { date: "2027-05-08", opponent: "Ajax", approx: true },
+    { date: "2027-05-16", opponent: "PEC Zwolle" }
+  ].map(function (f) { return Object.assign({ competition: "Eredivisie", isHome: true }, f); });
+
+  /* ================= icons ================= */
+  function icon(name, size, extra) {
+    size = size || 16;
+    var body = {
+      check: '<polyline points="20 6 9 17 4 12"/>',
+      x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+      plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+      chevronRight: '<polyline points="9 18 15 12 9 6"/>',
+      chevronLeft: '<polyline points="15 18 9 12 15 6"/>',
+      calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+      settings: '<line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2"/>',
+      trophy: '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a3 3 0 0 0 3 4"/><path d="M17 5h3a3 3 0 0 1-3 4"/>',
+      message: '<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.35 0-2.62-.32-3.73-.9L3 21l1.9-5.77A8.46 8.46 0 0 1 3.5 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5Z"/>',
+      loader: '<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.9" y1="4.9" x2="7.8" y2="7.8"/><line x1="16.2" y1="16.2" x2="19.1" y2="19.1"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.9" y1="19.1" x2="7.8" y2="16.2"/><line x1="16.2" y1="7.8" x2="19.1" y2="4.9"/>',
+      trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+      dice: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.2"/><circle cx="16" cy="8" r="1.2"/><circle cx="8" cy="16" r="1.2"/><circle cx="16" cy="16" r="1.2"/><circle cx="12" cy="12" r="1.2"/>',
+      download: '<path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><line x1="4" y1="20" x2="20" y2="20"/>',
+      info: '<circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/>',
+      users: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M22 20c0-2.6-1.9-4.6-4.3-5.1"/>',
+      beer: '<path d="M6 9h10v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9Z"/><path d="M16 11h1.5a2 2 0 0 1 0 4H16"/><path d="M6 9c0-2.5 1-4 3-5"/>',
+      target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
+      receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/>',
+      skip: '<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>'
+    }[name] || "";
+    var cls = name === "loader" ? ' class="spin"' : "";
+    return '<svg' + cls + ' width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' + (extra || "") + ">" + body + "</svg>";
+  }
+
+  function alkmaarWapen(size) {
+    size = size || 40;
+    var h = size * (110 / 140);
+    return (
+      '<svg viewBox="0 0 140 110" width="' + size + '" height="' + h + '" aria-label="Ome Jan Beurtbier logo">' +
+      '<circle cx="70" cy="56" r="52" fill="var(--red)"/>' +
+      '<path d="M9,60 H31 L28,92 H12 Z" fill="var(--gold)" stroke="var(--ink)" stroke-width="1.2"/>' +
+      '<ellipse cx="20" cy="59.5" rx="12" ry="4.5" fill="#fff" stroke="var(--ink)" stroke-width="1"/>' +
+      '<path d="M131,60 H109 L112,92 H128 Z" fill="var(--gold)" stroke="var(--ink)" stroke-width="1.2"/>' +
+      '<ellipse cx="120" cy="59.5" rx="12" ry="4.5" fill="#fff" stroke="var(--ink)" stroke-width="1"/>' +
+      '<circle cx="70" cy="52" r="27" fill="#fff" stroke="var(--red-dark)" stroke-width="2"/>' +
+      [0, 1, 2, 3, 4].map(function (i) { return '<rect x="' + (51 + i * 9.5) + '" y="21" width="6" height="9" fill="#fff" stroke="var(--red-dark)" stroke-width="1"/>'; }).join("") +
+      '<rect x="61" y="60" width="18" height="20" rx="1" fill="var(--ink)"/>' +
+      "</svg>"
+    );
+  }
+
+  /* ================= personal (per device) storage ================= */
+  function getLocal(key, fallback) {
+    try {
+      var raw = window.localStorage.getItem("beurtbier:" + key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) { return fallback; }
+  }
+  function setLocal(key, value) {
+    try { window.localStorage.setItem("beurtbier:" + key, JSON.stringify(value)); } catch (e) {}
+  }
+  // Met Supabase komen updates via een live-verbinding binnen (zie
+  // initSupabase hieronder) in plaats van via een volledige pagina-herlaad,
+  // dus navigatie "springt" hier nooit meer terug — er is geen bewaar/herstel-
+  // trucje voor nodig zoals in de losse-Artifact-versie van deze app.
+
+  /* ================= shared state + Supabase plumbing ================= */
+  // Vul deze twee waarden in met je eigen Supabase-project (Project settings ->
+  // API). De "publishable"/anon key is met opzet openbaar — die staat straks
+  // gewoon zichtbaar in de broncode van de pagina. De echte afscherming zit in
+  // de Row Level Security-policies die het meegeleverde SQL-script instelt.
+  var SUPABASE_URL = "https://pyvpihcfysqkwsqamdlt.supabase.co";
+  var SUPABASE_ANON_KEY = "sb_publishable_bCubIC_VlhsKXOXBq7msDQ_sNn-fQE2";
+
+  var defaultSettings = { pricePerBeer: 5.99, cupsPerRun: 8, depositPerCup: 2.0 };
+  function defaultState() {
+    return { members: [], matches: [], settings: Object.assign({}, defaultSettings), adminPasscode: null, matchData: {} };
+  }
+  function normalizeState(raw) {
+    var s = raw && typeof raw === "object" ? raw : {};
+    s.members = s.members || [];
+    s.matches = s.matches || [];
+    s.settings = Object.assign({}, defaultSettings, s.settings || {});
+    s.matchData = s.matchData || {};
+    // Migratie: een oudere versie van de app gebruikte een vooraf-ingevulde
+    // "wanters"-lijst i.p.v. zelf-gemelde responses. Zet dit best-effort om,
+    // zodat een ronde die nog "in de lucht hing" tijdens de update niet crasht.
+    Object.keys(s.matchData).forEach(function (mid) {
+      var ar = s.matchData[mid] && s.matchData[mid].activeRound;
+      if (ar && !ar.responses && Array.isArray(ar.wanters)) {
+        var responses = {};
+        ar.wanters.forEach(function (w) { if (w.qty > 0) responses[w.personId] = { qty: w.qty }; });
+        ar.responses = responses;
+      }
+    });
+    return s;
+  }
+
+  var state = defaultState();
+  var sb = null;
+  var supabaseReady = false;
+  var loadError = "";
+  var saveError = false;
+
+  async function initSupabase() {
+    try {
+      if (!window.supabase || typeof window.supabase.createClient !== "function") {
+        loadError = "Kon de Supabase-bibliotheek niet laden — controleer je internetverbinding en laad de pagina opnieuw.";
+        render();
+        return;
+      }
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // De hele app-staat leeft als één rij in de generieke kv_store-tabel,
+      // onder de vaste sleutel "app_state".
+      var res = await sb.from("kv_store").select("value").eq("key", "app_state").maybeSingle();
+      if (res.error) throw res.error;
+      if (res.data && res.data.value && Object.keys(res.data.value).length > 0) {
+        state = normalizeState(res.data.value);
+      } else {
+        // Eerste keer: nog geen (gevulde) rij aanwezig -> begin met een lege staat.
+        state = defaultState();
+        var ins = await sb.from("kv_store").upsert({ key: "app_state", value: state, updated_at: new Date().toISOString() });
+        if (ins.error) throw ins.error;
+      }
+      supabaseReady = true;
+      render();
+      // Live-sync: zodra iemand anders (of dit apparaat, via een andere tab)
+      // iets opslaat, komt de nieuwe staat hier binnen zonder dat er ooit een
+      // volledige pagina-herlaad nodig is — dus ook geen navigatie die "springt".
+      sb.channel("kv_store_app_state_changes")
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "kv_store", filter: "key=eq.app_state" }, function (payload) {
+          if (!payload || !payload.new) return;
+          state = normalizeState(payload.new.value);
+          savePending = false;
+          render();
+        })
+        .subscribe();
+    } catch (e) {
+      console.error("Supabase init mislukt", e);
+      loadError = "Kon geen verbinding maken met de database. Controleer of het SQL-installatiescript is uitgevoerd in je Supabase-project, en of de Project URL en key hierboven kloppen." + ((e && e.message) ? " (" + e.message + ")" : "");
+      render();
+    }
+  }
+
+  var debounceTimer = null;
+  var debounceDraft = null;
+  var savePending = false;
+
+  function emptyMatchData() {
+    return { checkins: [], activeRound: null, rounds: [], returns: {}, predictions: {} };
+  }
+  function matchData(id) {
+    if (!state.matchData[id]) state.matchData[id] = emptyMatchData();
+    return state.matchData[id];
+  }
+
+  async function publishState(next) {
+    if (!sb) { render(); return; }
+    savePending = true;
+    render();
+    try {
+      var res = await sb.from("kv_store").update({ value: next, updated_at: new Date().toISOString() }).eq("key", "app_state");
+      if (res.error) throw res.error;
+      saveError = false;
+      savePending = false;
+      render();
+      // De realtime-subscriptie hierboven bevestigt dit ook bij onszelf (een
+      // onschuldige dubbele render) en stuurt de update naar alle andere
+      // geopende apparaten door.
+    } catch (e) {
+      savePending = false;
+      saveError = true;
+      console.error("opslaan mislukt", e);
+      render();
+    }
+  }
+
+  // Discrete, betekenisvolle acties (aanvinken, trekken, bevestigen): meteen publiceren.
+  function immediateMutate(mutator) {
+    clearTimeout(debounceTimer);
+    var base = debounceDraft || state;
+    var next = mutator(clone(base)) || base;
+    debounceDraft = null;
+    state = next;
+    render();
+    publishState(next);
+  }
+  // Snelle opeenvolgende tikken (+/- steppers): bundelen tot één publicatie.
+  function debouncedMutate(mutator) {
+    if (!debounceDraft) debounceDraft = clone(state);
+    debounceDraft = mutator(debounceDraft) || debounceDraft;
+    state = debounceDraft;
+    render();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function () {
+      var d = debounceDraft; debounceDraft = null;
+      publishState(d);
+    }, 500);
+  }
+
+  /* ================= local UI-only state ================= */
+  var ui = {
+    me: getLocal("me", null),
+    viewAsId: null,
+    activeTab: "aanmelden",
+    selectedMatchId: null,
+    explicitlyBrowsing: false,
+    showAddMatch: false,
+    drawing: false,
+    spinName: "",
+    myAdminCode: getLocal("adminCode", ""),
+    onboardError: "",
+    adminError: "",
+    importMsg: "",
+    showRequestAccess: false,
+    drafts: {
+      nameInput: "",
+      joinNameInput: "",
+      newMemberName: "",
+      newMatch: { date: "", time: "14:30", opponent: "", competition: "Eredivisie", isHome: true },
+      adminCodeInput: ""
+    }
+  };
+
+  function memberName(id) {
+    var m = state.members.find(function (mm) { return mm.id === id; });
+    return m ? m.name : "?";
+  }
+  function meId() { return ui.viewAsId || (ui.me && ui.me.id); }
+  // De ECHTE beheerder-status van dit toestel (het apparaat kent de code),
+  // los van wie er via testmodus wordt bekeken.
+  function isRealAdmin() { return !state.adminPasscode || ui.myAdminCode === state.adminPasscode; }
+  // De EFFECTIEVE beheerder-status voor wat er nu op het scherm hoort te staan:
+  // zodra je via testmodus als iemand anders kijkt, zie je precies wat DIE
+  // persoon zou zien — dus geen beheerder-only knoppen meer, ook al ben je dat
+  // zelf wel. Zo kun je écht controleren hoe het scherm van een gewoon lid
+  // eruitziet, en kan niemand anders dan de beheerder ooit een eindstand of
+  // instelling aanpassen.
+  function isAdmin() { return isRealAdmin() && !ui.viewAsId; }
+  function approvedMembers() { return state.members.filter(function (m) { return m.status !== "pending"; }); }
+  function pendingMembers() { return state.members.filter(function (m) { return m.status === "pending"; }); }
+  var PARTICIPANT_TABS = ["aanmelden", "beurten", "afrekening"];
+  // "instellingen" hoort hier bewust NIET bij: dat tabblad blijft voor iedereen
+  // zichtbaar (met alleen het ontgrendelformulier voor niet-beheerders) — anders
+  // kan iemand die de vergrendeling activeert er zelf nooit meer in.
+  var ADMIN_ONLY_TABS = ["stand"];
+
+  /* ================= actions ================= */
+  var app = {};
+  window.app = app;
+
+  // Alleen voor het allereerste lid ooit (de groep bestaat nog niet): die
+  // persoon wordt automatisch goedgekeurd, want er is nog geen beheerder om
+  // iets goed te keuren. Iedereen daarna gebruikt app.requestAccess hieronder.
+  app.completeOnboarding = function () {
+    var trimmed = (ui.drafts.nameInput || "").trim();
+    if (!trimmed) return;
+    var existing = state.members.find(function (m) { return m.name.toLowerCase() === trimmed.toLowerCase(); });
+    if (existing) { ui.me = existing; setLocal("me", existing); render(); return; }
+    var person = { id: uid(), name: trimmed, status: "approved" };
+    immediateMutate(function (draft) { draft.members = draft.members.concat([person]); return draft; });
+    ui.me = person; setLocal("me", person); ui.onboardError = ""; render();
+  };
+  app.claimMemberAsMe = function (id) {
+    var person = state.members.find(function (m) { return m.id === id; });
+    if (!person) return;
+    ui.me = person; setLocal("me", person); ui.onboardError = ""; render();
+  };
+  app.toggleRequestAccess = function () { ui.showRequestAccess = !ui.showRequestAccess; render(); };
+  // Nieuw lid meldt zich aan via de gedeelde link: komt in de wachtrij totdat
+  // de beheerder het verzoek goedkeurt (zie app.approveMember).
+  app.requestAccess = function () {
+    var trimmed = (ui.drafts.joinNameInput || "").trim();
+    if (!trimmed) return;
+    var existing = state.members.find(function (m) { return m.name.toLowerCase() === trimmed.toLowerCase(); });
+    if (existing) { ui.me = existing; setLocal("me", existing); render(); return; }
+    var person = { id: uid(), name: trimmed, status: "pending" };
+    immediateMutate(function (draft) { draft.members = draft.members.concat([person]); return draft; });
+    ui.me = person; setLocal("me", person); ui.onboardError = ""; ui.showRequestAccess = false; render();
+  };
+  app.approveMember = function (id) {
+    immediateMutate(function (draft) {
+      draft.members = draft.members.map(function (m) { return m.id === id ? Object.assign({}, m, { status: "approved" }) : m; });
+      return draft;
+    });
+  };
+  app.rejectMember = function (id) {
+    immediateMutate(function (draft) { draft.members = draft.members.filter(function (m) { return m.id !== id; }); return draft; });
+  };
+  app.setDraft = function (path, value) {
+    var parts = path.split(".");
+    var obj = ui.drafts;
+    for (var i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+    obj[parts[parts.length - 1]] = value;
+  };
+
+  app.setTab = function (tab) { ui.activeTab = tab; render(); };
+  app.selectMatch = function (id) { ui.selectedMatchId = id; ui.explicitlyBrowsing = true; render(); };
+  app.toggleAddMatch = function () { ui.showAddMatch = !ui.showAddMatch; render(); };
+  app.setNewMatchHome = function (isHome) { ui.drafts.newMatch.isHome = isHome; render(); };
+  app.setNewMatchCompetition = function (v) { ui.drafts.newMatch.competition = v; };
+
+  app.addMatch = function () {
+    var nm = ui.drafts.newMatch;
+    if (!nm.date || !(nm.opponent || "").trim()) return;
+    var match = { id: uid(), date: nm.date, time: nm.time || "14:30", opponent: nm.opponent.trim(), competition: nm.competition, isHome: nm.isHome, finalScore: null, finalScoreAt: null };
+    ui.drafts.newMatch = { date: "", time: "14:30", opponent: "", competition: "Eredivisie", isHome: true };
+    ui.showAddMatch = false;
+    immediateMutate(function (draft) { draft.matches = draft.matches.concat([match]); return draft; });
+  };
+  app.removeMatch = function (id) {
+    if (ui.selectedMatchId === id) { ui.selectedMatchId = null; ui.explicitlyBrowsing = false; }
+    immediateMutate(function (draft) {
+      draft.matches = draft.matches.filter(function (m) { return m.id !== id; });
+      delete draft.matchData[id];
+      return draft;
+    });
+  };
+  app.updateMatchTime = function (id, time) {
+    immediateMutate(function (draft) {
+      draft.matches = draft.matches.map(function (m) { return m.id === id ? Object.assign({}, m, { time: time }) : m; });
+      return draft;
+    });
+  };
+  app.updateMatchDuration = function (id, minutes) {
+    immediateMutate(function (draft) {
+      draft.matches = draft.matches.map(function (m) { return m.id === id ? Object.assign({}, m, { estimatedDurationMin: Math.max(30, minutes || 120) }) : m; });
+      return draft;
+    });
+  };
+  app.setMatchFinalScore = function (matchId, home, away) {
+    immediateMutate(function (draft) {
+      draft.matches = draft.matches.map(function (m) {
+        if (m.id !== matchId) return m;
+        if (home === null || away === null) return Object.assign({}, m, { finalScore: null, finalScoreAt: null });
+        return Object.assign({}, m, { finalScore: { home: home, away: away }, finalScoreAt: m.finalScoreAt || Date.now() });
+      });
+      return draft;
+    });
+  };
+  // Live tussenstand: nu nog handmatig door de beheerder bijgewerkt, maar
+  // bewust als los veld (i.p.v. hergebruik van finalScore) opgezet zodat een
+  // toekomstige koppeling met een live-uitslagenbron dit veld vanzelf kan
+  // vullen zonder de eindstand-/gok-verrekeningslogica te raken.
+  app.setMatchLiveScore = function (matchId, home, away) {
+    immediateMutate(function (draft) {
+      draft.matches = draft.matches.map(function (m) {
+        if (m.id !== matchId) return m;
+        if (home === null || away === null) return Object.assign({}, m, { liveScore: null });
+        return Object.assign({}, m, { liveScore: { home: home, away: away, updatedAt: Date.now() } });
+      });
+      return draft;
+    });
+  };
+  app.importAzFixtures = function () {
+    var existingKeys = {};
+    state.matches.forEach(function (m) { existingKeys[m.date + "|" + m.opponent.toLowerCase()] = true; });
+    var toAdd = AZ_HOME_FIXTURES_2026_27.filter(function (f) { return !existingKeys[f.date + "|" + f.opponent.toLowerCase()]; })
+      .map(function (f) { return { id: uid(), date: f.date, time: "14:30", opponent: f.opponent, competition: f.competition, isHome: true, approx: !!f.approx, finalScore: null, finalScoreAt: null }; });
+    if (toAdd.length === 0) { ui.importMsg = "Alle thuiswedstrijden stonden er al in."; render(); return; }
+    ui.importMsg = toAdd.length + " thuiswedstrijden toegevoegd (aftraptijd standaard op 14:30 — pas dit per wedstrijd aan bij Instellingen zodra de officiele tijd bekend is). Beker- en Europese loting volgen later in het seizoen.";
+    immediateMutate(function (draft) { draft.matches = draft.matches.concat(toAdd); return draft; });
+  };
+  app.addMember = function () {
+    var trimmed = (ui.drafts.newMemberName || "").trim();
+    if (!trimmed) return;
+    if (state.members.some(function (m) { return m.name.toLowerCase() === trimmed.toLowerCase(); })) return;
+    ui.drafts.newMemberName = "";
+    // Door de beheerder zelf toegevoegd = meteen goedgekeurd, geen aparte stap nodig.
+    immediateMutate(function (draft) { draft.members = draft.members.concat([{ id: uid(), name: trimmed, status: "approved" }]); return draft; });
+  };
+  app.removeMember = function (id) {
+    immediateMutate(function (draft) { draft.members = draft.members.filter(function (m) { return m.id !== id; }); return draft; });
+  };
+  app.updateSetting = function (key, value) {
+    immediateMutate(function (draft) { draft.settings = Object.assign({}, draft.settings); draft.settings[key] = value; return draft; });
+  };
+  app.claimAdmin = function () {
+    var code = (ui.drafts.adminCodeInput || "").trim();
+    if (!code) return;
+    if (state.adminPasscode) { ui.adminError = "Er is al een beheerder ingesteld — vraag de code op."; render(); return; }
+    setLocal("adminCode", code); ui.myAdminCode = code; ui.adminError = ""; ui.drafts.adminCodeInput = "";
+    immediateMutate(function (draft) { if (!draft.adminPasscode) draft.adminPasscode = code; return draft; });
+  };
+  app.unlockAdmin = function () {
+    var code = (ui.drafts.adminCodeInput || "").trim();
+    if (code !== state.adminPasscode) { ui.adminError = "Onjuiste code."; render(); return; }
+    setLocal("adminCode", code); ui.myAdminCode = code; ui.adminError = ""; ui.drafts.adminCodeInput = ""; render();
+  };
+  app.lockAdmin = function () { setLocal("adminCode", ""); ui.myAdminCode = ""; render(); };
+  // Bewust GEEN tabblad/wedstrijd-navigatie resetten hier: wie in Instellingen
+  // via testmodus wisselt (of teruggaat naar zichzelf) moet op Instellingen
+  // blijven staan om meteen de volgende persoon te kunnen kiezen.
+  app.setViewAs = function (id) {
+    ui.viewAsId = id;
+    render();
+  };
+
+  app.toggleCheckin = function (matchId, personId, checked) {
+    immediateMutate(function (draft) {
+      var md = draft.matchData[matchId] || (draft.matchData[matchId] = emptyMatchData());
+      if (checked) { if (md.checkins.indexOf(personId) === -1) md.checkins = md.checkins.concat([personId]); }
+      else { md.checkins = md.checkins.filter(function (id) { return id !== personId; }); }
+      return draft;
+    });
+  };
+
+  // Zelf-gemeld: iedereen geeft voor zichzelf aan "ik wil bier" of "ik sla over".
+  // Nogmaals tikken op een al-actieve keuze trekt 'm weer in (terug naar
+  // "nog niet gereageerd"). Maakt lazily een ronde aan als die er nog niet is.
+  function ensureActiveRound(md) {
+    if (!md.activeRound) md.activeRound = { stage: "composing", responses: {}, halers: null };
+    if (!md.activeRound.responses) md.activeRound.responses = {};
+    return md.activeRound;
+  }
+  app.respondWant = function (matchId, personId) {
+    immediateMutate(function (draft) {
+      var md = draft.matchData[matchId];
+      var ar = ensureActiveRound(md);
+      if (ar.stage !== "composing") return draft;
+      var cur = ar.responses[personId];
+      if (cur && cur.qty > 0) delete ar.responses[personId];
+      else ar.responses[personId] = { qty: (cur && cur.qty > 0) ? cur.qty : 1 };
+      return draft;
+    });
+  };
+  app.respondSkip = function (matchId, personId) {
+    immediateMutate(function (draft) {
+      var md = draft.matchData[matchId];
+      var ar = ensureActiveRound(md);
+      if (ar.stage !== "composing") return draft;
+      var cur = ar.responses[personId];
+      if (cur && cur.qty === 0) delete ar.responses[personId];
+      else ar.responses[personId] = { qty: 0 };
+      return draft;
+    });
+  };
+  app.setResponseQty = function (matchId, personId, qty) {
+    debouncedMutate(function (draft) {
+      var ar = draft.matchData[matchId].activeRound;
+      if (!ar || ar.stage !== "composing" || !ar.responses[personId]) return draft;
+      ar.responses[personId] = { qty: Math.max(1, qty) };
+      return draft;
+    });
+  };
+  app.cancelRound = function (matchId) {
+    ui.drawing = false; ui.spinName = "";
+    immediateMutate(function (draft) { draft.matchData[matchId].activeRound = null; return draft; });
+  };
+  app.startDraw = async function (matchId) {
+    var md = state.matchData[matchId];
+    if (!md || !md.activeRound) return;
+    var pool = md.checkins.slice();
+    if (pool.length === 0) return;
+    var responses = md.activeRound.responses || {};
+    var cap = state.settings.cupsPerRun || 8;
+    var wantedTotal = Object.keys(responses).reduce(function (s, pid) { return s + (responses[pid].qty || 0); }, 0);
+    var numHalers = Math.max(1, Math.min(pool.length, Math.ceil(wantedTotal / cap)));
+    var historical = {};
+    Object.keys(state.matchData).forEach(function (mid) {
+      (state.matchData[mid].rounds || []).forEach(function (r) {
+        roundHalers(r).forEach(function (h) { historical[h.personId] = (historical[h.personId] || 0) + 1; });
+      });
+    });
+    var todayCounts = {};
+    (md.rounds || []).forEach(function (r) { roundHalers(r).forEach(function (h) { todayCounts[h.personId] = (todayCounts[h.personId] || 0) + 1; }); });
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ui.drawing = true; render();
+    var winners = [];
+    var remainingPool = pool.slice();
+    for (var k = 0; k < numHalers; k++) {
+      var weights = remainingPool.map(function (pid) { return 1 / (1 + (historical[pid] || 0) + (todayCounts[pid] || 0) * 2); });
+      var idx = weightedPick(remainingPool, weights);
+      var winnerId = remainingPool[idx];
+      if (!reduceMotion) {
+        var spinDurationMs = 700;
+        var start = Date.now();
+        while (Date.now() - start < spinDurationMs) {
+          ui.spinName = memberName(remainingPool[Math.floor(Math.random() * remainingPool.length)]);
+          render();
+          await sleep(70);
+        }
+      }
+      ui.spinName = memberName(winnerId); render();
+      await sleep(reduceMotion ? 120 : 300);
+      winners.push(winnerId);
+      remainingPool.splice(idx, 1);
+    }
+    ui.drawing = false; ui.spinName = "";
+    var base = Math.floor(wantedTotal / winners.length);
+    var extra = wantedTotal % winners.length;
+    var halers = winners.map(function (personId, i) { return { personId: personId, broughtBack: base + (i < extra ? 1 : 0), emptyCupsIn: 0 }; });
+    immediateMutate(function (draft) {
+      var ar = draft.matchData[matchId].activeRound;
+      if (!ar || ar.stage !== "composing") return draft;
+      ar.stage = "drawn"; ar.halers = halers;
+      return draft;
+    });
+  };
+  app.updateHalerBroughtBack = function (matchId, personId, n) {
+    debouncedMutate(function (draft) {
+      var ar = draft.matchData[matchId].activeRound;
+      if (!ar) return draft;
+      ar.halers = ar.halers.map(function (h) { return h.personId === personId ? Object.assign({}, h, { broughtBack: clamp0(n) }) : h; });
+      return draft;
+    });
+  };
+  app.updateHalerEmptyCups = function (matchId, personId, n) {
+    debouncedMutate(function (draft) {
+      var ar = draft.matchData[matchId].activeRound;
+      if (!ar) return draft;
+      ar.halers = ar.halers.map(function (h) { return h.personId === personId ? Object.assign({}, h, { emptyCupsIn: clamp0(n) }) : h; });
+      return draft;
+    });
+  };
+  app.confirmRound = function (matchId) {
+    immediateMutate(function (draft) {
+      var md = draft.matchData[matchId];
+      var ar = md.activeRound;
+      if (!ar) return draft;
+      var responses = ar.responses || {};
+      var finished = {
+        id: uid(),
+        wanters: Object.keys(responses).filter(function (pid) { return responses[pid].qty > 0; }).map(function (pid) { return { personId: pid, qty: responses[pid].qty }; }),
+        halers: (ar.halers || []).map(function (h) { return { personId: h.personId, broughtBack: h.broughtBack || 0, emptyCupsIn: h.emptyCupsIn || 0 }; }),
+        ts: Date.now()
+      };
+      var returns = Object.assign({}, md.returns);
+      (ar.halers || []).forEach(function (h) { if (h.emptyCupsIn > 0) returns[h.personId] = (returns[h.personId] || 0) + h.emptyCupsIn; });
+      md.activeRound = null; md.rounds = (md.rounds || []).concat([finished]); md.returns = returns;
+      return draft;
+    });
+  };
+  app.removeRound = function (matchId, roundId) {
+    immediateMutate(function (draft) {
+      var md = draft.matchData[matchId];
+      md.rounds = md.rounds.filter(function (r) { return r.id !== roundId; });
+      return draft;
+    });
+  };
+  // Alleen bedoeld om aangeroepen te worden vanaf het scherm van de haler zelf
+  // (zie renderBeurtenTab): elke haler krijgt daar een vaste, niet-overlappende
+  // deelverzameling namen te zien, dus dit kan nooit dubbel voor dezelfde
+  // persoon worden ingevuld door twee gelijktijdige halers.
+  app.setReturn = function (matchId, personId, cups) {
+    immediateMutate(function (draft) {
+      var md = draft.matchData[matchId];
+      var returns = Object.assign({}, md.returns);
+      if (cups > 0) returns[personId] = cups; else delete returns[personId];
+      md.returns = returns;
+      return draft;
+    });
+  };
+  app.bumpReturn = function (matchId, personId, cups) {
+    debouncedMutate(function (draft) {
+      var md = draft.matchData[matchId];
+      var returns = Object.assign({}, md.returns);
+      if (cups > 0) returns[personId] = cups; else delete returns[personId];
+      md.returns = returns;
+      return draft;
+    });
+  };
+  app.togglePrediction = function (matchId, personId, on) {
+    immediateMutate(function (draft) {
+      var md = draft.matchData[matchId];
+      var predictions = Object.assign({}, md.predictions);
+      if (on) predictions[personId] = { home: 0, away: 0 }; else delete predictions[personId];
+      md.predictions = predictions;
+      return draft;
+    });
+  };
+  app.setPredictionScore = function (matchId, personId, home, away) {
+    immediateMutate(function (draft) {
+      var md = draft.matchData[matchId];
+      var predictions = Object.assign({}, md.predictions);
+      var cur = predictions[personId] || { home: 0, away: 0 };
+      predictions[personId] = { home: home == null ? cur.home : clamp0(home), away: away == null ? cur.away : clamp0(away) };
+      md.predictions = predictions;
+      return draft;
+    });
+  };
+  app.shareLink = function (text) { window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank"); };
+
+  /* ================= render helpers ================= */
+  function loadingBlock() {
+    return '<div class="loading-wrap">' + icon("loader", 18) + "Laden…</div>";
+  }
+
+  function ctaCard(opts) {
+    var activeCls = opts.active ? " active" : "";
+    var iconCls = opts.disabled ? "cta-icon dim" : "cta-icon";
+    return (
+      '<div class="cta-card' + activeCls + '">' +
+      '<button class="checkbox cta-checkbox' + (opts.active ? " on" : "") + '" ' + (opts.disabled ? "disabled" : "") + " onclick=\"" + esc(opts.onclick) + '" aria-label="' + esc(opts.title) + '">' +
+      (opts.active ? icon("check", 15, ' stroke-width="3"') : "") +
+      "</button>" +
+      '<div class="cta-text-wrap"><div class="cta-title">' + esc(opts.title) + '</div><div class="cta-sub">' + opts.sub + "</div>" + (opts.extra || "") + "</div>" +
+      '<div class="' + iconCls + '">' + icon(opts.icon, 20) + "</div>" +
+      "</div>"
+    );
+  }
+
+  // Compacte tegel voor de "ik wil bier" / "ik sla over" keuze — de twee
+  // staan naast elkaar en sluiten elkaar uit.
+  function choiceTile(opts) {
+    var activeCls = opts.active ? " active" : "";
+    return (
+      '<div class="cta-card' + activeCls + '" role="button" tabindex="0" onclick="' + esc(opts.onclick) + '" onkeydown="if(event.key===\'Enter\')' + esc(opts.onclick) + '">' +
+      '<div class="cta-icon">' + icon(opts.icon, 22) + "</div>" +
+      '<div class="cta-title">' + esc(opts.title) + "</div>" +
+      (opts.sub ? '<div class="cta-sub">' + esc(opts.sub) + "</div>" : "") +
+      "</div>"
+    );
+  }
+
+  function renderOnboarding() {
+    var html = '<div class="shell"><div class="onboard">';
+    html += alkmaarWapen(52);
+    html += '<div class="onboard-badge">AZ TRIBUNEBEURTEN · VAK W</div>';
+    html += '<h1 class="onboard-title">Ome Jan Beurtbier</h1>';
+    html += '<p class="onboard-sub">Eerlijk verdeelde bierrondes voor het hele seizoen.</p>';
+    var approved = approvedMembers();
+    if (approved.length > 0) {
+      html += '<p class="onboard-note" style="margin-top:0">Wie ben jij?</p><div class="onboard-picklist">';
+      approved.forEach(function (m) {
+        html += '<button class="onboard-pick-btn" onclick="app.claimMemberAsMe(\'' + m.id + "')\">" + esc(m.name) + "</button>";
+      });
+      html += "</div>";
+      if (!ui.showRequestAccess) {
+        html += '<button class="btn-ghost-sm" style="margin-top:16px" onclick="app.toggleRequestAccess()">Sta je er niet bij? Vraag toegang aan</button>';
+      } else {
+        html += '<div style="margin-top:16px;text-align:left">';
+        html += '<input class="onboard-input" placeholder="Jouw naam" value="' + esc(ui.drafts.joinNameInput) + '" oninput="app.setDraft(\'joinNameInput\', this.value)" onkeydown="if(event.key===\'Enter\') app.requestAccess()" autofocus />';
+        html += '<button class="btn-primary" onclick="app.requestAccess()">Vraag toegang aan ' + icon("chevronRight", 16) + "</button>";
+        html += '<p class="onboard-note">De beheerder van de groep moet je verzoek eerst goedkeuren bij Instellingen, daarna kun je meteen aan de slag.</p>';
+        html += "</div>";
+      }
+    } else {
+      html += '<input class="onboard-input" placeholder="Jouw naam" value="' + esc(ui.drafts.nameInput) + '" oninput="app.setDraft(\'nameInput\', this.value)" onkeydown="if(event.key===\'Enter\') app.completeOnboarding()" autofocus />';
+      html += '<button class="btn-primary" onclick="app.completeOnboarding()">Ik doe mee ' + icon("chevronRight", 16) + "</button>";
+      html += '<p class="onboard-note">Er staat nog niemand in de groep — jij bent de eerste. Voeg daarna de rest toe bij Instellingen, of deel deze link zodat mensen zelf toegang kunnen aanvragen.</p>';
+    }
+    if (ui.onboardError) html += '<p class="onboard-note" style="color:var(--red);font-weight:600">' + esc(ui.onboardError) + "</p>";
+    html += '<details class="diag"><summary>Werkt dit niet? Tik hier</summary><div class="diag-content">';
+    html += "<div>Delen tussen apparaten: " + (supabaseReady ? "beschikbaar (live via Supabase)" : "niet verbonden") + "</div>";
+    html += "<div>Aantal goedgekeurde leden: " + approved.length + "</div>";
+    html += "</div></details>";
+    html += "</div></div>";
+    return html;
+  }
+
+  function renderPendingGate(rec) {
+    var html = '<div class="shell"><div class="onboard">';
+    html += alkmaarWapen(52);
+    html += '<div class="onboard-badge">AZ TRIBUNEBEURTEN · VAK W</div>';
+    html += '<h1 class="onboard-title" style="font-size:26px">Even geduld, ' + esc(rec.name) + "</h1>";
+    html += '<p class="onboard-sub">Je aanmelding staat klaar en wacht op goedkeuring van de beheerder van de groep. Zodra die je goedkeurt, kun je hier meteen aan de slag — je hoeft niets opnieuw in te vullen.</p>';
+    html += '<p class="onboard-note">Nog geen beheerder in de buurt? Vraag iemand die er al in zit om je aanmelding te accorderen bij Instellingen.</p>';
+    html += "</div></div>";
+    return html;
+  }
+
+  function renderHeader() {
+    var html = '<div class="header"><div class="header-left">' + alkmaarWapen(34) + '<div><div class="header-eyebrow">AZ TRIBUNEBEURTEN · VAK W</div><div class="header-title">Ome Jan Beurtbier</div></div></div>';
+    html += '<div class="header-me">' + esc(ui.me.name) + (savePending ? " · opslaan…" : "") + "</div></div>";
+    if (ui.viewAsId) {
+      html += '<div class="test-banner"><span>🧪 Testmodus: je bekijkt en handelt nu als <b>' + esc(memberName(ui.viewAsId)) + '</b></span><button class="test-banner-btn" onclick="app.setViewAs(null)">Terug naar mezelf</button></div>';
+    }
+    if (saveError) {
+      html += '<div class="test-banner" style="background:#3a1400;color:#ffb27a"><span>Laatste wijziging kon niet worden opgeslagen — controleer je internetverbinding. Probeer het gewoon opnieuw.</span></div>';
+    }
+    html += '<nav class="tabbar">';
+    var tabs = [["aanmelden", "Aanmelden", "users"], ["beurten", "Beurten", "beer"], ["afrekening", "Afrekening", "receipt"]];
+    if (isAdmin()) tabs = tabs.concat([["stand", "Stand", "trophy"]]);
+    // Instellingen blijft altijd zichtbaar (ook voor niet-beheerders) — anders kan
+    // niemand er ooit meer in ontgrendelen zodra de vergrendeling actief staat.
+    // De inhoud zelf is wél volledig beheerder-only (zie renderInstellingenTab).
+    tabs = tabs.concat([["instellingen", "Instellingen", "settings"]]);
+    tabs.forEach(function (t) {
+      var active = ui.activeTab === t[0];
+      html += '<button class="tab-btn' + (active ? " active" : "") + '" onclick="app.setTab(\'' + t[0] + "')\"><span style=\"flex-shrink:0;display:flex\">" + icon(t[2], 13) + "</span><span style=\"overflow:hidden;text-overflow:ellipsis\">" + t[1] + "</span></button>";
+    });
+    html += "</nav>";
+    return html;
+  }
+
+  // Compacte kop + wisselaar bovenaan elk deelnemer-tabblad: wie tegen wie,
+  // wanneer, en (als er meer wedstrijden zijn) een dropdown om een andere
+  // wedstrijd te bekijken zonder een aparte "alle wedstrijden"-laag nodig te hebben.
+  function renderMatchHeader(match) {
+    var sorted = state.matches.slice().sort(function (a, b) { return a.date > b.date ? 1 : -1; });
+    var html = "";
+    if (sorted.length > 1) {
+      html += '<div class="match-switch-row"><select class="match-switch-select" onchange="app.selectMatch(this.value)">';
+      sorted.forEach(function (m) {
+        var d = m.date ? new Date(m.date + "T12:00:00") : null;
+        var label = (d ? d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : m.date) + " · AZ–" + m.opponent;
+        html += '<option value="' + m.id + '" ' + (m.id === match.id ? "selected" : "") + ">" + esc(label) + "</option>";
+      });
+      html += "</select></div>";
+    }
+    html += '<div class="match-detail-head"><div class="head-badge">' + esc(match.competition) + " · " + (match.isHome ? "Thuis" : "Uit") + '</div>';
+    html += '<h2 class="match-detail-title">AZ – ' + esc(match.opponent) + "</h2>";
+    var d = match.date ? new Date(match.date + "T12:00:00") : null;
+    html += '<div class="match-detail-date">' + (d ? d.toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" }) : "") + (match.approx ? " · datum onder voorbehoud" : "") + "</div></div>";
+    return html;
+  }
+
+  function renderNoMatch() {
+    var html = '<div class="empty-state"><p class="empty-title">Nog geen wedstrijden</p>';
+    if (isAdmin()) {
+      html += '<p class="empty-body">Voeg een wedstrijd toe of importeer het AZ-programma bij Instellingen.</p>';
+    } else {
+      html += '<p class="empty-body">De beheerder moet nog wedstrijden toevoegen.</p>';
+    }
+    html += "</div>";
+    return html;
+  }
+
+  /* ---- Tabblad: Aanmelden en gokken ---- */
+  function renderAanmeldenTab(match) {
+    var md = matchData(match.id);
+    var checkins = md.checkins || [];
+    var predictions = md.predictions || {};
+    var me = meId();
+    var isChecked = function (pid) { return checkins.indexOf(pid) !== -1; };
+    var kickoffMs = match.date ? new Date(match.date + "T" + (match.time || "14:30") + ":00").getTime() : null;
+    var now = Date.now();
+    var predictionsLocked = kickoffMs ? now >= kickoffMs - 60 * 1000 : false;
+    var predictionsRevealed = kickoffMs ? now >= kickoffMs + 60 * 1000 : false;
+
+    var html = renderMatchHeader(match);
+    html += '<div class="section-head" style="margin-top:0">Aanmelden en gokken</div>';
+    html += '<div class="cta-stack">';
+    html += ctaCard({
+      icon: "beer", title: isChecked(me) ? "Je wilt bierdrinken" : "Ik wil bierdrinken", sub: checkins.length + " aangemeld",
+      active: isChecked(me), onclick: "app.toggleCheckin('" + match.id + "','" + me + "'," + (!isChecked(me)) + ")"
+    });
+    var predSub = !isChecked(me) ? "meld je eerst aan om te kunnen gokken" : predictionsLocked ? "gokken is gesloten" : "tot 1 min. vóór aftrap (" + esc(match.time || "14:30") + " uur)";
+    var predExtra = "";
+    var myPred = predictions[me];
+    if (myPred) {
+      predExtra = '<div class="predict-score-row" style="margin-top:6px">' +
+        '<input type="number" min="0" class="input-score" ' + (predictionsLocked ? "disabled" : "") + ' value="' + myPred.home + '" onchange="app.setPredictionScore(\'' + match.id + "','" + me + "', parseInt(this.value,10)||0, null)\" />" +
+        '<span style="margin:0 4px;color:var(--muted)">–</span>' +
+        '<input type="number" min="0" class="input-score" ' + (predictionsLocked ? "disabled" : "") + ' value="' + myPred.away + '" onchange="app.setPredictionScore(\'' + match.id + "','" + me + "', null, parseInt(this.value,10)||0)\" />" +
+        "</div>";
+    }
+    var predDisabled = !isChecked(me) || (predictionsLocked && !myPred);
+    html += ctaCard({
+      icon: "target", title: myPred ? "Jouw gok: " + myPred.home + "-" + myPred.away : "Ik wil gokken", sub: predSub,
+      active: !!myPred, disabled: predDisabled, extra: predExtra,
+      onclick: predDisabled ? "" : "app.togglePrediction('" + match.id + "','" + me + "'," + (!myPred) + ")"
+    });
+    html += "</div>";
+
+    html += '<div class="section-head">Stand</div><div class="card">';
+    if (match.finalScore) {
+      html += '<div style="font-size:14px;font-weight:700">Eindstand: AZ ' + match.finalScore.home + " – " + match.finalScore.away + " " + esc(match.opponent) + "</div>";
+    } else if (match.liveScore) {
+      html += '<div style="display:flex;align-items:center;gap:8px">';
+      html += '<span class="live-dot" aria-hidden="true"></span>';
+      html += '<div style="font-size:14px;font-weight:700">Live stand: AZ ' + match.liveScore.home + " – " + match.liveScore.away + " " + esc(match.opponent) + "</div></div>";
+      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Bijgewerkt om ' + new Date(match.liveScore.updatedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + ' uur — dit vult de beheerder nu nog handmatig in, dus reken niet op de seconde.</div>';
+    } else {
+      html += '<div class="info-note" style="margin-bottom:0">Nog geen stand — die vult de beheerder handmatig in. Checken, bier halen en afrekenen loopt gewoon door.</div>';
+    }
+    if (isAdmin()) {
+      html += '<div class="predict-final-row" style="margin-top:' + (match.finalScore || match.liveScore ? "10px" : "8px") + '">';
+      html += '<span style="font-size:12.5px;color:var(--muted);font-weight:500">Live tussenstand:</span>';
+      html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.liveScore ? match.liveScore.home : "") + '" onchange="app.setMatchLiveScore(\'' + match.id + "', this.value===''?null:(parseInt(this.value,10)||0), " + (match.liveScore ? match.liveScore.away : 0) + ')" />';
+      html += "<span>–</span>";
+      html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.liveScore ? match.liveScore.away : "") + '" onchange="app.setMatchLiveScore(\'' + match.id + "', " + (match.liveScore ? match.liveScore.home : 0) + ", this.value===''?null:(parseInt(this.value,10)||0))\" />";
+      html += "</div>";
+      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Nu nog handmatig; dit veld staat los van de eindstand zodat een live-uitslagenbron dit later automatisch kan bijwerken.</div>';
+    }
+    html += "</div>";
+
+    html += '<div class="section-head">Voorspellingen</div><div class="card">';
+    if (!predictionsRevealed) {
+      var revealNote = kickoffMs
+        ? "Voorspellingen van de rest worden zichtbaar vanaf " + new Date(kickoffMs + 60000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + " uur (1 minuut na aftrap) — zo kan niemand nog met andermans gok meekijken."
+        : "Voorspellingen van de rest worden pas zichtbaar vanaf 1 minuut na aftrap.";
+      html += '<div class="info-note" style="margin-bottom:0">' + revealNote + "</div>";
+    } else {
+      html += '<div class="info-note">Wie de exacte eindstand goed had, dronk tijdens de wedstrijd gratis — de rest deelde dat bedrag gelijk. Bier na afloop telt gewoon normaal mee.</div>';
+      html += '<div class="roster-list">';
+      approvedMembers().forEach(function (m) {
+        var p = predictions[m.id];
+        var hasPrediction = !!p;
+        var result = match.finalScore && hasPrediction ? (p.home === match.finalScore.home && p.away === match.finalScore.away ? "win" : "loss") : null;
+        html += '<div class="roster-row' + (m.id === me ? " me" : "") + (result === "win" ? " winner" : "") + '">';
+        html += '<span class="roster-name">' + esc(m.name) + "</span>";
+        if (hasPrediction) {
+          html += '<span style="font-family:\'JetBrains Mono\',monospace;font-weight:700">' + p.home + "–" + p.away + "</span>";
+          if (result === "win") html += '<span class="predict-win-badge">🎯 goed geraden!</span>';
+          if (result === "loss") html += '<span class="predict-loss-badge">mis</span>';
+        } else {
+          html += '<span class="empty-body">niet gegokt</span>';
+        }
+        html += "</div>";
+      });
+      if (state.members.length === 0) html += '<div class="empty-body">Voeg leden toe bij Instellingen.</div>';
+      html += "</div>";
+    }
+    if (isAdmin()) {
+      html += '<div class="predict-final-row"><span style="font-size:12.5px;color:var(--muted);font-weight:500">Eindstand invullen:</span>';
+      html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.finalScore ? match.finalScore.home : "") + '" onchange="app.setMatchFinalScore(\'' + match.id + "', this.value===''?null:(parseInt(this.value,10)||0), " + (match.finalScore ? match.finalScore.away : 0) + ')" />';
+      html += "<span>–</span>";
+      html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.finalScore ? match.finalScore.away : "") + '" onchange="app.setMatchFinalScore(\'' + match.id + "', " + (match.finalScore ? match.finalScore.home : 0) + ", this.value===''?null:(parseInt(this.value,10)||0))\" />";
+      html += "</div>";
+    }
+    html += "</div>";
+    return html;
+  }
+
+  /* ---- Tabblad: Bier en beurten ---- */
+  function renderBeurtenTab(match) {
+    var md = matchData(match.id);
+    var checkins = md.checkins || [];
+    var rounds = md.rounds || [];
+    var active = md.activeRound;
+    var me = meId();
+    var cap = state.settings.cupsPerRun || 8;
+
+    var html = renderMatchHeader(match);
+    html += '<div class="section-head" style="margin-top:0">Bier en beurten</div>';
+
+    if (checkins.length === 0) {
+      html += '<div class="empty-state"><p class="empty-body">Meld je eerst aan bij "Aanmelden" om een beurt te kunnen starten.</p></div>';
+      return html;
+    }
+
+    // Vlak voor het (verwachte) einde van de wedstrijd: wijs één duidelijk
+    // inleverpunt aan voor de lege bekers, in plaats van erop te vertrouwen dat
+    // iedereen dat na afloop nog zelf regelt. Degene die op dat moment het
+    // meeste tegoed heeft, is het inleverpunt — logisch, want die heeft er het
+    // meeste belang bij dat de bekers ook echt terugkomen.
+    var endMs = estimatedEndMs(match);
+    if (endMs && Date.now() >= endMs - 5 * 60 * 1000 && rounds.length > 0) {
+      var closingSettlement = computeNetBalances(checkins, rounds, md.returns || {}, state.settings, md.predictions || {}, match.finalScore, match.finalScoreAt);
+      var collectorId = null, bestAmt = -Infinity;
+      checkins.forEach(function (pid) { var v = closingSettlement.net[pid] || 0; if (v > bestAmt) { bestAmt = v; collectorId = pid; } });
+      if (collectorId && bestAmt > 0.005) {
+        html += '<div class="card" style="border-color:var(--gold);background:#fffaf0">';
+        html += '<div style="font-weight:700;font-size:13.5px">⏰ Wedstrijd loopt bijna af</div>';
+        html += '<div class="info-note" style="margin-top:4px;margin-bottom:0">Lever je lege beker in bij <b>' + esc(memberName(collectorId)) + "</b> — die heeft op dit moment het meeste tegoed, dus dat scheelt straks verrekenen.</div>";
+        html += "</div>";
+        if (me === collectorId) {
+          var drunkSoFarNow = computeDrunkSoFar(rounds);
+          var mdReturnsNow = md.returns || {};
+          html += '<div class="section-head">Lege bekers inleveren</div><div class="card">';
+          html += '<div class="info-note">Jij bent het inleverpunt — vink hier iedereen af zodra je hun lege beker hebt.</div>';
+          html += '<div class="roster-list">';
+          checkins.forEach(function (pid) {
+            var cups = mdReturnsNow[pid] || 0;
+            var checked = cups > 0;
+            var suggested = drunkSoFarNow[pid] || 1;
+            html += '<div class="roster-row"><button class="checkbox' + (checked ? " on" : "") + '" onclick="app.setReturn(\'' + match.id + "','" + pid + "', " + (checked ? 0 : suggested) + ')" aria-label="Bekers ingeleverd">' + (checked ? icon("check", 13, ' stroke-width="3"') : "") + "</button>";
+            html += '<span class="roster-name">' + esc(memberName(pid)) + "</span>";
+            if (checked) {
+              html += '<div class="beer-stepper"><button class="step-btn" onclick="app.bumpReturn(\'' + match.id + "','" + pid + "', " + Math.max(0, cups - 1) + ')">–</button><span class="beer-count">' + cups + '</span><button class="step-btn" onclick="app.bumpReturn(\'' + match.id + "','" + pid + "', " + (cups + 1) + ')">+</button></div>';
+            }
+            html += "</div>";
+          });
+          html += "</div></div>";
+        }
+      }
+    }
+
+    var responses = (active && active.responses) || {};
+    var respondedIds = Object.keys(responses);
+    var pendingIds = checkins.filter(function (pid) { return respondedIds.indexOf(pid) === -1; });
+    var allResponded = pendingIds.length === 0;
+    var wantedTotal = respondedIds.reduce(function (s, pid) { return s + (responses[pid].qty || 0); }, 0);
+    var myResponse = responses[me];
+    var iAmChecked = checkins.indexOf(me) !== -1;
+
+    if (!active || active.stage === "composing") {
+      if (iAmChecked) {
+        html += '<div class="cta-pair" style="margin-bottom:12px">';
+        html += choiceTile({
+          icon: "beer", title: myResponse && myResponse.qty > 0 ? "Ik wil bier (" + myResponse.qty + ")" : "Ik wil bier",
+          active: !!(myResponse && myResponse.qty > 0), onclick: "app.respondWant('" + match.id + "','" + me + "')"
+        });
+        html += choiceTile({
+          icon: "skip", title: "Ik sla over",
+          active: !!(myResponse && myResponse.qty === 0), onclick: "app.respondSkip('" + match.id + "','" + me + "')"
+        });
+        html += "</div>";
+        if (myResponse && myResponse.qty > 0) {
+          html += '<div class="card" style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:-4px">';
+          html += '<span style="font-size:13px;color:var(--muted)">aantal:</span>';
+          html += '<button class="step-btn" onclick="app.setResponseQty(\'' + match.id + "','" + me + "', " + (myResponse.qty - 1) + ')">–</button>';
+          html += '<span class="beer-count" style="font-size:18px">' + myResponse.qty + "</span>";
+          html += '<button class="step-btn" onclick="app.setResponseQty(\'' + match.id + "','" + me + "', " + (myResponse.qty + 1) + ')">+</button>';
+          html += "</div>";
+        }
+      } else {
+        html += '<div class="info-note">Je bent nog niet aangemeld voor deze wedstrijd (zie tabblad Aanmelden), dus je kunt nog niet reageren op deze beurt.</div>';
+      }
+
+      html += '<div class="scoreboard">';
+      if (ui.drawing) {
+        html += '<div class="spin-name">' + esc(ui.spinName) + "</div>";
+      } else {
+        html += '<div class="progress-note">' + respondedIds.length + " van " + checkins.length + " hebben gereageerd</div>";
+        html += '<div class="progress-bar-track"><div class="progress-bar-fill" style="width:' + Math.round((checkins.length ? respondedIds.length / checkins.length : 0) * 100) + '%"></div></div>';
+        if (!allResponded && isAdmin()) {
+          html += '<div class="pending-names-note">Nog geen reactie van: ' + esc(pendingIds.map(memberName).join(", ")) + "</div>";
+        } else if (!allResponded) {
+          html += '<div class="pending-names-note">Wacht nog op een paar mensen…</div>';
+        }
+        if (wantedTotal > cap) {
+          html += '<div class="wheel-warn">' + wantedTotal + " bier gevraagd — meer dan " + cap + " per persoon te tillen, dus er worden zo " + Math.ceil(wantedTotal / cap) + " mensen aangewezen die het samen halen.</div>";
+        }
+        if (allResponded && wantedTotal === 0) {
+          html += '<div class="pending-names-note" style="margin-top:6px">Niemand wil deze beurt bier.</div>';
+          html += '<button class="btn-ghost-dark" style="width:100%;margin-top:6px" onclick="app.cancelRound(\'' + match.id + '\')">Ronde sluiten</button>';
+        } else {
+          html += '<button class="btn-draw-xl" ' + (!allResponded || wantedTotal === 0 ? "disabled" : "") + ' onclick="app.startDraw(\'' + match.id + '\')" style="margin-top:4px">' + icon("dice", 18) + " Trek wie haalt</button>";
+        }
+      }
+      html += renderRoundHistory(match, rounds);
+      html += "</div>";
+    } else if (active.stage === "drawn") {
+      var halerIds = active.halers.map(function (h) { return h.personId; });
+      var returnGroups = partitionReturnCandidates(checkins, halerIds);
+      var haulerNames = active.halers.map(function (h) { return memberName(h.personId); });
+      var myHalerEntry = active.halers.find(function (h) { return h.personId === me; });
+
+      html += '<div class="scoreboard">';
+      html += '<div class="pending-card"><div class="pending-label">' + (active.halers.length > 1 ? esc(haulerNames.join(" & ")) + " zijn aan de beurt" : esc(haulerNames[0]) + " is aan de beurt") + "</div>";
+      var wanterText = Object.keys(active.responses || {}).filter(function (pid) { return active.responses[pid].qty > 0; }).map(function (pid) { return esc(memberName(pid)) + " (" + active.responses[pid].qty + ")"; }).join(", ") || "—";
+      html += '<div class="pending-sub">haalt voor: ' + wanterText + "</div>";
+      if (active.halers.length > 1) {
+        var totH = active.halers.reduce(function (s, h) { return s + (h.broughtBack || 0); }, 0);
+        html += '<div class="pending-sub" style="margin-top:4px">samen ' + totH + " bier verdeeld over " + active.halers.length + " man — pas hieronder aan als het anders liep.</div>";
+      }
+      var roundNumber = rounds.length + 1;
+      html += '<div style="display:flex;flex-direction:column;gap:14px;margin:12px 0">';
+      active.halers.forEach(function (h, hi) {
+        var isMe = h.personId === me;
+        html += '<div class="hauler-block"><div class="hauler-top"><span class="hauler-name">' + esc(memberName(h.personId)) + '</span><div class="beer-stepper">';
+        html += '<button class="step-btn-light" ' + (isMe ? "disabled" : "") + ' onclick="app.updateHalerBroughtBack(\'' + match.id + "','" + h.personId + "', " + ((h.broughtBack || 0) - 1) + ')">–</button>';
+        html += '<span class="pending-count">' + h.broughtBack + "</span>";
+        html += '<button class="step-btn-light" ' + (isMe ? "disabled" : "") + ' onclick="app.updateHalerBroughtBack(\'' + match.id + "','" + h.personId + "', " + ((h.broughtBack || 0) + 1) + ')">+</button></div></div>';
+        if (isMe) html += '<div class="empty-cups-label" style="margin-top:4px;text-align:left">Dit bevestig je niet zelf — vraag iemand anders die er is.</div>';
+        if (roundNumber === 1) {
+          html += '<div class="empty-cups-label" style="margin-top:6px">Dit is de eerste beurt — er zijn nog geen lege bekers om in te leveren. Dat komt vanaf de volgende beurt.</div>';
+        } else {
+          html += '<div class="empty-cups-row"><span class="empty-cups-label">lege bekers die bij ' + (isMe ? "jou" : esc(memberName(h.personId))) + ' zijn ingeleverd</span><div class="beer-stepper">';
+          html += '<button class="step-btn-light-sm" ' + (!isMe ? "disabled" : "") + ' onclick="app.updateHalerEmptyCups(\'' + match.id + "','" + h.personId + "', " + ((h.emptyCupsIn || 0) - 1) + ')">–</button>';
+          html += '<span class="pending-count-sm">' + (h.emptyCupsIn || 0) + "</span>";
+          html += '<button class="step-btn-light-sm" ' + (!isMe ? "disabled" : "") + ' onclick="app.updateHalerEmptyCups(\'' + match.id + "','" + h.personId + "', " + ((h.emptyCupsIn || 0) + 1) + ')">+</button></div></div>';
+        }
+        // Bekers-inleveren: alleen zichtbaar voor déze haler, en alleen voor zijn/haar
+        // eigen vaste deel van de groep — zo kunnen twee gelijktijdige halers nooit
+        // dezelfde naam allebei afvinken. Vanaf de eerste beurt heeft nog niemand
+        // een lege beker, dus die stap slaan we dan over.
+        if (isMe && roundNumber > 1) {
+          // De haler levert vanzelfsprekend ook zijn/haar eigen lege beker in
+          // (die had diegene toch al bij zich) - dus die hoort altijd bovenaan
+          // dit rijtje, naast de partitie van andermans bekers die deze haler
+          // toebedeeld kreeg.
+          var myGroup = [h.personId].concat(returnGroups[hi] || []);
+          html += '<div class="haul-returns-block"><div class="haul-returns-title">Bekers die jij inneemt</div>';
+          if (myGroup.length === 0) {
+            html += '<div class="empty-cups-label">Niemand anders om bekers van in te nemen.</div>';
+          } else {
+            var mdReturns = md.returns || {};
+            var drunkSoFar = computeDrunkSoFar(rounds);
+            myGroup.forEach(function (pid) {
+              var cups = mdReturns[pid] || 0;
+              var checked = cups > 0;
+              var suggested = drunkSoFar[pid] || 1;
+              html += '<div class="return-row-dark"><button class="checkbox-dark' + (checked ? " on" : "") + '" style="border-color:rgba(255,255,255,0.3)" onclick="app.setReturn(\'' + match.id + "','" + pid + "', " + (checked ? 0 : suggested) + ')" aria-label="Bekers ingeleverd">' + (checked ? icon("check", 12, ' stroke-width="3"') : "") + "</button>";
+              html += '<span class="return-name-dark">' + esc(memberName(pid)) + "</span>";
+              if (checked) {
+                html += '<div class="beer-stepper"><button class="step-btn-light-sm" onclick="app.bumpReturn(\'' + match.id + "','" + pid + "', " + Math.max(0, cups - 1) + ')">–</button>';
+                html += '<span class="pending-count-sm">' + cups + "</span>";
+                html += '<button class="step-btn-light-sm" onclick="app.bumpReturn(\'' + match.id + "','" + pid + "', " + (cups + 1) + ')">+</button></div>';
+              }
+              html += "</div>";
+            });
+          }
+          html += "</div>";
+        }
+        html += "</div>";
+      });
+      html += "</div>";
+      if (myHalerEntry) {
+        html += '<div class="info-note" style="color:#fff;background:rgba(255,255,255,0.08);padding:8px;border-radius:6px;margin-bottom:0">Jij haalt zelf mee — iemand anders in de groep moet dit bevestigen zodra jullie terug zijn.</div>';
+      } else {
+        var totConfirm = active.halers.reduce(function (s, h) { return s + (h.broughtBack || 0); }, 0);
+        var totCups = active.halers.reduce(function (s, h) { return s + (h.emptyCupsIn || 0); }, 0);
+        html += '<div style="display:flex;gap:8px"><button class="btn-ghost-dark" onclick="app.cancelRound(\'' + match.id + '\')">Annuleren</button>';
+        html += '<button class="btn-draw" onclick="app.confirmRound(\'' + match.id + '\')">' + icon("check", 15) + " Bevestig: " + totConfirm + " bier terug" + (totCups > 0 ? " (+" + totCups + " bekers ingeleverd)" : "") + "</button></div>";
+      }
+      html += "</div>";
+      html += renderRoundHistory(match, rounds);
+    }
+    return html;
+  }
+
+  function renderRoundHistory(match, rounds) {
+    if (rounds.length === 0) return "";
+    var html = '<div class="reveal-list">';
+    rounds.slice().reverse().forEach(function (r) {
+      var idx = rounds.indexOf(r);
+      var halers = roundHalers(r);
+      var totalR = halers.reduce(function (s, h) { return s + (h.broughtBack || 0); }, 0);
+      var halerText = halers.map(function (h) { return esc(memberName(h.personId)) + " (" + h.broughtBack + ")"; }).join(" &amp; ");
+      html += '<div class="reveal-item"><span>Beurt ' + (idx + 1) + ": <b>" + (halerText || "—") + "</b> haalt " + totalR + " bier voor " + r.wanters.length + " man</span>";
+      html += '<button class="icon-btn-dark" onclick="app.removeRound(\'' + match.id + "','" + r.id + '\')" aria-label="Verwijder beurt">' + icon("trash", 12) + "</button></div>";
+    });
+    html += "</div>";
+    return html;
+  }
+
+  // Volledige, natelbare berekening per persoon — zodat iedereen zelf kan
+  // controleren dat het klopt in plaats van alleen de eindsom te moeten
+  // vertrouwen. Toont exact dezelfde onderdelen die in het nettobedrag zitten.
+  function renderBreakdownTable(settlement, checkins) {
+    var ids = {};
+    checkins.forEach(function (pid) { ids[pid] = true; });
+    Object.keys(settlement.net || {}).forEach(function (pid) { ids[pid] = true; });
+    var list = Object.keys(ids).map(function (pid) { return { id: pid, name: memberName(pid) }; });
+    list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    if (list.length === 0) return "";
+    var html = '<div class="section-head">Volledige berekening</div>';
+    html += '<div class="info-note">Alle onderdelen los, zodat je zelf kunt natellen: wat je haalde (bier + statiegeld), wat je zelf dronk, welk statiegeld op jouw bekers is terugontvangen, jouw aandeel in kwijtgeraakte bekers en de gok-bonus/malus. Netto in <span style="color:var(--good);font-weight:700">groen</span> = jij krijgt geld, in <span style="color:var(--red);font-weight:700">rood</span> = jij moet nog betalen (zie "Afrekenen" hieronder voor wie aan wie).</div>';
+    html += '<div class="stand-table" style="margin-bottom:12px"><div class="stand-head-row" style="min-width:600px">';
+    html += '<span class="stand-name" style="font-weight:700">Naam</span><span class="stand-col">Gehaald</span><span class="stand-col">Gedronken</span><span class="stand-col">Statiegeld</span><span class="stand-col">Kwijt</span><span class="stand-col">Gok</span><span class="stand-col">Netto</span>';
+    html += "</div>";
+    list.forEach(function (row) {
+      var bk = settlement.breakdown && settlement.breakdown[row.id];
+      bk = bk || { haaldeBeker: 0, haaldeCredit: 0, dronkBeker: 0, dronkDebit: 0, statiegeldTerugCups: 0, statiegeldTerugDebit: 0, kwijtAandeel: 0, gokAdjust: 0 };
+      var netAmt = (settlement.net && settlement.net[row.id]) || 0;
+      html += '<div class="stand-row" style="min-width:600px">';
+      html += '<span class="stand-name">' + esc(row.name) + "</span>";
+      html += '<span class="stand-col">' + (bk.haaldeBeker > 0 ? euro(bk.haaldeCredit) + ' <span style="color:var(--muted)">(' + bk.haaldeBeker + ")</span>" : "–") + "</span>";
+      html += '<span class="stand-col">' + (bk.dronkBeker > 0 ? euroSigned(bk.dronkDebit) + ' <span style="color:var(--muted)">(' + bk.dronkBeker + ")</span>" : "–") + "</span>";
+      html += '<span class="stand-col">' + (bk.statiegeldTerugCups > 0 ? euroSigned(bk.statiegeldTerugDebit) + ' <span style="color:var(--muted)">(' + bk.statiegeldTerugCups + ")</span>" : "–") + "</span>";
+      html += '<span class="stand-col">' + (Math.abs(bk.kwijtAandeel) > 0.005 ? euroSigned(bk.kwijtAandeel) : "–") + "</span>";
+      html += '<span class="stand-col">' + (Math.abs(bk.gokAdjust) > 0.005 ? euroSigned(bk.gokAdjust) : "–") + "</span>";
+      html += '<span class="stand-col" style="font-weight:700;color:' + (netAmt >= 0 ? "var(--good)" : "var(--red)") + '">' + euroSigned(netAmt) + "</span>";
+      html += "</div>";
+    });
+    html += "</div>";
+    return html;
+  }
+
+  /* ---- Tabblad: Financiële afrekening ---- */
+  function renderAfrekeningTab(match) {
+    var md = matchData(match.id);
+    var checkins = md.checkins || [];
+    var rounds = md.rounds || [];
+    var returns = md.returns || {};
+    var predictions = md.predictions || {};
+    var hasSettlement = rounds.length > 0 || (!!match.finalScore && Object.keys(predictions).length > 0);
+    var settlement = hasSettlement
+      ? computeNetBalances(checkins, rounds, returns, state.settings, predictions, match.finalScore, match.finalScoreAt)
+      : { net: {}, breakdown: {}, totalBought: 0, totalReturned: 0, lostCups: 0, winnerIds: [], loserIds: [] };
+    var transactions = hasSettlement ? settleNet(settlement.net) : [];
+
+    var html = renderMatchHeader(match);
+    html += '<div class="section-head" style="margin-top:0">Financiële afrekening</div>';
+
+    if (!hasSettlement) {
+      html += '<div class="empty-state"><p class="empty-body">Nog niets om af te rekenen — zodra er een beurt is geweest verschijnt hier het overzicht.</p></div>';
+      return html;
+    }
+
+    html += '<div class="card"><div class="info-note" style="margin-bottom:8px">' + icon("info", 12) + settlement.totalBought + " bekers gekocht (à " + euro(state.settings.depositPerCup != null ? state.settings.depositPerCup : 1) + " statiegeld). Bekers worden ingeleverd door de haler van dat moment (zie tabblad Beurten) — wat niet is ingeleverd, wordt automatisch als kwijt geteld en eerlijk over alle aanwezigen verdeeld.</div>";
+    html += '<div class="stat-row"><div class="stat-box"><div class="stat-num">' + settlement.totalBought + '</div><div class="stat-label">gekocht</div></div>';
+    html += '<div class="stat-box"><div class="stat-num">' + settlement.totalReturned + '</div><div class="stat-label">ingeleverd</div></div>';
+    html += '<div class="stat-box' + (settlement.lostCups > 0 ? " warn" : "") + '"><div class="stat-num">' + settlement.lostCups + '</div><div class="stat-label">kwijt</div></div></div></div>';
+
+    html += renderBreakdownTable(settlement, checkins);
+
+    html += '<div class="section-head">Afrekenen</div>';
+    html += '<div class="info-note">Alles staat hierin al verrekend: wie welke beurten meedronk, wie statiegeld voorschoot, wie het terugkreeg en het eerlijke aandeel van kwijtgeraakte bekers. Onderlinge schulden zijn tegen elkaar weggestreept.</div>';
+    if (match.finalScore && (settlement.winnerIds.length > 0 || settlement.loserIds.length > 0)) {
+      html += '<div class="info-note" style="margin-top:-6px">';
+      var forgiven = settlement.forgivenTotal || 0;
+      if (settlement.winnerIds.length > 0 && settlement.loserIds.length > 0 && forgiven > 0.005) {
+        html += "🎯 " + esc(settlement.winnerIds.map(memberName).join(", ")) + " had" + (settlement.winnerIds.length === 1 ? "" : "en") + " de score goed en dronk/dronken gratis (" + euro(forgiven) + ") — dat bedrag is gelijk verdeeld over " + esc(settlement.loserIds.map(memberName).join(", ")) + ".";
+      } else if (settlement.winnerIds.length > 0 && settlement.loserIds.length > 0) {
+        // Winnaar(s) bekend, maar er viel niets kwijt te schelden: ofwel dronk de
+        // winnaar zelf niets tijdens de wedstrijd (vóór de eindstand werd
+        // ingevuld), ofwel haalde die zelf meer dan hij/zij dronk. Dit expliciet
+        // benoemen voorkomt de indruk dat de gok-verrekening niet werkt.
+        html += "🎯 " + esc(settlement.winnerIds.map(memberName).join(", ")) + " had de score goed, maar dronk zelf niets (netto) tijdens de wedstrijd — dus was er niets kwijt te schelden. Let op: alleen beurten van vóór het invullen van de eindstand tellen mee voor de gok-verrekening.";
+      } else if (settlement.winnerIds.length > 0) {
+        html += "🎯 " + esc(settlement.winnerIds.map(memberName).join(", ")) + " had de score goed, maar er waren geen verliezers om het aandeel over te verdelen.";
+      } else {
+        html += "Niemand had de exacte eindstand goed voorspeld — de gewone verrekening geldt.";
+      }
+      html += "</div>";
+    }
+    html += '<div class="settle-list">';
+    if (transactions.length === 0) html += '<div class="empty-body">Niemand hoeft nog iets te verrekenen.</div>';
+    transactions.forEach(function (t) {
+      var text = "Hoi " + memberName(t.from) + "! Voor AZ - " + match.opponent + " kun je " + euro(t.amount) + " tikkien naar " + memberName(t.to) + "? 🍻";
+      html += '<div class="settle-row"><div><div class="settle-name">' + esc(memberName(t.from)) + '</div><div class="settle-meta">aan ' + esc(memberName(t.to)) + "</div></div>";
+      html += '<div class="settle-amount">' + euro(t.amount) + "</div>";
+      html += '<button class="icon-btn" onclick="app.shareLink(' + JSON.stringify(text).replace(/"/g, "&quot;") + ')" aria-label="Deel via WhatsApp">' + icon("message", 15) + "</button></div>";
+    });
+    html += "</div>";
+    return html;
+  }
+
+  function renderStandTab() {
+    var rows = approvedMembers().map(function (m) {
+      var attended = 0, hauls = 0, beers = 0;
+      Object.keys(state.matchData).forEach(function (mid) {
+        var d = state.matchData[mid];
+        if ((d.checkins || []).indexOf(m.id) !== -1) attended++;
+        (d.rounds || []).forEach(function (r) {
+          roundHalers(r).forEach(function (h) { if (h.personId === m.id) { hauls++; beers += h.broughtBack || 0; } });
+        });
+      });
+      var ratio = attended > 0 ? hauls / attended : 0;
+      return { id: m.id, name: m.name, attended: attended, hauls: hauls, beers: beers, ratio: ratio };
+    });
+    rows.sort(function (a, b) { return b.ratio - a.ratio; });
+    var html = '<div><div class="section-head" style="margin-top:0">Seizoensstand</div>';
+    html += '<div class="info-note">Hoe hoger de ratio, hoe vaker iemand relatief al heeft gehaald — die staat dus achteraan bij de volgende trekking.</div>';
+    html += '<div class="stand-table"><div class="stand-head-row"><span class="stand-name" style="font-weight:700">Naam</span><span class="stand-col">Aanwezig</span><span class="stand-col">Beurten</span><span class="stand-col">Bier</span></div>';
+    rows.forEach(function (r, i) {
+      html += '<div class="stand-row"><span class="stand-name"><span class="rank-badge">' + (i + 1) + '.</span>' + esc(r.name) + '</span><span class="stand-col">' + r.attended + '</span><span class="stand-col">' + r.hauls + '</span><span class="stand-col">' + r.beers + "</span></div>";
+    });
+    if (rows.length === 0) html += '<div class="empty-body" style="padding:14px">Nog geen leden toegevoegd.</div>';
+    html += "</div></div>";
+    return html;
+  }
+
+  function renderAdminGate() {
+    var hasPasscode = !!state.adminPasscode;
+    if (isAdmin() && hasPasscode) {
+      return '<div class="card"><div class="info-note" style="margin-bottom:8px">Je bent ontgrendeld als beheerder op dit toestel. Alleen jij kunt wedstrijden, prijzen en leden aanpassen.</div><button class="btn-ghost-sm" onclick="app.lockAdmin()">Vergrendel beheerder</button></div>';
+    }
+    if (isAdmin() && !hasPasscode) {
+      var html = '<div class="card"><div class="info-note">Er is nog geen beheerder ingesteld. Kies een code — wie deze als eerste instelt, is voortaan de enige die wedstrijden en prijzen mag beheren.</div>';
+      html += '<div class="form-row"><input class="input" placeholder="Kies een beheerderscode" value="' + esc(ui.drafts.adminCodeInput) + '" oninput="app.setDraft(\'adminCodeInput\', this.value)" onkeydown="if(event.key===\'Enter\') app.claimAdmin()" />';
+      html += '<button class="btn-primary-sm" onclick="app.claimAdmin()">Word beheerder</button></div>';
+      if (ui.adminError) html += '<div class="info-note" style="color:var(--red);margin-top:4px;margin-bottom:0">' + esc(ui.adminError) + "</div>";
+      html += "</div>";
+      return html;
+    }
+    var html2 = '<div class="card"><div class="info-note">Wedstrijden, prijzen en leden worden beheerd door de beheerder van de groep. Vul de code in om dit op dit toestel te ontgrendelen.</div>';
+    html2 += '<div class="form-row"><input class="input" type="password" placeholder="Beheerderscode" value="' + esc(ui.drafts.adminCodeInput) + '" oninput="app.setDraft(\'adminCodeInput\', this.value)" onkeydown="if(event.key===\'Enter\') app.unlockAdmin()" />';
+    html2 += '<button class="btn-primary-sm" onclick="app.unlockAdmin()">Ontgrendel</button></div>';
+    if (ui.adminError) html2 += '<div class="info-note" style="color:var(--red);margin-top:4px;margin-bottom:0">' + esc(ui.adminError) + "</div>";
+    html2 += "</div>";
+    return html2;
+  }
+
+  function renderInstellingenTab() {
+    var admin = isAdmin();
+    var html = '<div><div class="section-head" style="margin-top:0">Beheerder</div>' + renderAdminGate();
+    // Voor niet-beheerders stopt dit tabblad hier: alleen het ontgrendelformulier
+    // hierboven is zichtbaar (nodig om ooit weer toegang te krijgen), verder niets.
+    if (!admin) { html += "</div>"; return html; }
+    // Vanaf hier is `admin` altijd true (niet-beheerders zijn hierboven al teruggestuurd),
+    // dus geen aparte niet-beheerder-varianten meer nodig.
+    var pending = pendingMembers();
+    if (pending.length > 0) {
+      html += '<div class="section-head">Aanmeldingsverzoeken</div><div class="card">';
+      html += '<div class="info-note">Deze mensen hebben via de link toegang aangevraagd. Keur ze goed zodra je weet dat ze erbij horen.</div>';
+      html += '<div class="roster-list">';
+      pending.forEach(function (m) {
+        html += '<div class="roster-row"><span class="roster-name">' + esc(m.name) + '</span>';
+        html += '<button class="btn-ghost-sm" style="color:var(--good);border-color:var(--good)" onclick="app.approveMember(\'' + m.id + '\')">' + icon("check", 13) + " Goedkeuren</button>";
+        html += '<button class="btn-ghost-sm" onclick="app.rejectMember(\'' + m.id + '\')">' + icon("x", 13) + " Weigeren</button>";
+        html += "</div>";
+      });
+      html += "</div></div>";
+    }
+
+    html += '<div class="section-head">Testmodus</div><div class="card">';
+    html += '<div class="info-note">Bekijk en bedien de app alsof je een ander lid bent — handig om zonder je vrienden te testen hoe hun scherm eruitziet. Beheerder-only onderdelen (zoals deze instellingen en de eindstand) worden dan ook verborgen, precies zoals bij dat lid. Acties die je doet gebeuren dan echt namens die persoon.</div>';
+    if (ui.viewAsId) {
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px"><span style="font-size:13.5px;font-weight:600">Je test nu als: ' + esc(memberName(ui.viewAsId)) + '</span><button class="btn-ghost-sm" onclick="app.setViewAs(null)">Terug naar mezelf</button></div>';
+    } else {
+      var others = approvedMembers().filter(function (m) { return m.id !== ui.me.id; });
+      html += '<div class="member-chip-list">';
+      others.forEach(function (m) { html += '<button class="test-pick-chip" onclick="app.setViewAs(\'' + m.id + '\')">' + esc(m.name) + "</button>"; });
+      if (others.length === 0) html += '<div class="empty-body">Voeg eerst nog wat leden toe om als hen te kunnen testen.</div>';
+      html += "</div>";
+    }
+    html += "</div>";
+
+    html += '<div class="section-head">Wedstrijden toevoegen</div><div class="card">';
+    var nm = ui.drafts.newMatch;
+    html += '<div class="form-row">';
+    html += '<input type="date" class="input" value="' + esc(nm.date) + '" oninput="app.setDraft(\'newMatch.date\', this.value)" />';
+    html += '<input type="time" class="input" style="max-width:110px" value="' + esc(nm.time) + '" oninput="app.setDraft(\'newMatch.time\', this.value)" />';
+    html += '<input class="input" placeholder="Tegenstander" value="' + esc(nm.opponent) + '" oninput="app.setDraft(\'newMatch.opponent\', this.value)" />';
+    html += "</div>";
+    html += '<div class="form-row"><select class="input" onchange="app.setNewMatchCompetition(this.value)">';
+    ["Eredivisie", "KNVB Beker", "Europa League", "Conference League", "Vriendschappelijk", "Overig"].forEach(function (c) {
+      html += '<option ' + (nm.competition === c ? "selected" : "") + ">" + c + "</option>";
+    });
+    html += '</select><div class="toggle-group">';
+    html += '<button class="toggle-btn' + (nm.isHome ? " active" : "") + '" onclick="app.setNewMatchHome(true)">Thuis</button>';
+    html += '<button class="toggle-btn' + (!nm.isHome ? " active" : "") + '" onclick="app.setNewMatchHome(false)">Uit</button>';
+    html += "</div></div>";
+    html += '<button class="btn-primary-sm" onclick="app.addMatch()">Toevoegen</button>';
+    html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div class="info-note">Of importeer in één klik alle 17 Eredivisie-thuiswedstrijden van seizoen 2026/27. Beker- en Europese wedstrijden worden pas later geloot.</div>';
+    html += '<button class="btn-ghost-sm" onclick="app.importAzFixtures()">' + icon("download", 14) + " Importeer AZ thuisprogramma 2026/27</button>";
+    if (ui.importMsg) html += '<div class="info-note" style="margin-top:8px;margin-bottom:0">' + esc(ui.importMsg) + "</div>";
+    html += "</div></div>";
+
+    html += '<div class="section-head">Leden</div><div class="card">';
+    html += '<div class="info-note" style="margin-bottom:8px">Deel de link naar deze pagina zodat mensen zelf toegang kunnen aanvragen — die verschijnen dan hierboven bij "Aanmeldingsverzoeken". Handmatig toevoegen kan ook, en is meteen goedgekeurd.</div>';
+    html += '<div class="form-row"><input class="input" placeholder="Naam toevoegen" value="' + esc(ui.drafts.newMemberName) + '" oninput="app.setDraft(\'newMemberName\', this.value)" onkeydown="if(event.key===\'Enter\') app.addMember()" />';
+    html += '<button class="btn-primary-sm" onclick="app.addMember()">' + icon("plus", 14) + "</button></div>";
+    html += '<div class="member-chip-list">';
+    approvedMembers().forEach(function (m) {
+      html += '<div class="member-chip">' + esc(m.name) + '<button class="chip-remove" onclick="app.removeMember(\'' + m.id + '\')" aria-label="Verwijder ' + esc(m.name) + '">' + icon("x", 12) + "</button></div>";
+    });
+    if (approvedMembers().length === 0) html += '<div class="empty-body">Nog geen leden.</div>';
+    html += "</div></div>";
+
+    html += '<div class="section-head">Prijzen</div><div class="card">';
+    html += '<label class="field-label">Prijs per bier (excl. statiegeld)</label>';
+    html += '<input type="number" step="0.10" class="input" value="' + state.settings.pricePerBeer + '" onchange="app.updateSetting(\'pricePerBeer\', parseFloat(this.value)||0)" />';
+    html += '<label class="field-label" style="margin-top:12px">Statiegeld per beker</label>';
+    html += '<input type="number" step="0.10" class="input" value="' + state.settings.depositPerCup + '" onchange="app.updateSetting(\'depositPerCup\', parseFloat(this.value)||0)" />';
+    html += '<label class="field-label" style="margin-top:12px">Max. bier dat 1 persoon kan tillen/halen</label>';
+    html += '<input type="number" class="input" value="' + state.settings.cupsPerRun + '" onchange="app.updateSetting(\'cupsPerRun\', parseInt(this.value,10)||1)" />';
+    html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Is er in totaal meer nodig dan dit aantal, dan wijst de app zelf meerdere halers aan die het samen verdelen.</div></div>';
+
+    html += '<div class="section-head">Wedstrijden beheren</div><div class="card">';
+    var sorted = state.matches.slice().sort(function (a, b) { return a.date > b.date ? 1 : -1; });
+    if (sorted.length === 0) html += '<div class="empty-body">Nog geen wedstrijden.</div>';
+    sorted.forEach(function (m) {
+      html += '<div class="manage-match-block"><div class="manage-match-row"><span>' + esc(m.date) + " · AZ – " + esc(m.opponent) + "</span>";
+      html += '<button class="icon-btn" onclick="app.removeMatch(\'' + m.id + '\')" aria-label="Verwijder wedstrijd">' + icon("trash", 14) + "</button></div>";
+      html += '<div class="manage-match-detail-row"><label class="manage-match-label">Aftrap<input type="time" class="input-tiny" value="' + esc(m.time || "14:30") + '" onchange="app.updateMatchTime(\'' + m.id + '\', this.value)" /></label>';
+      html += '<label class="manage-match-label">Duur (min)<input type="number" min="30" step="5" class="input-tiny" style="width:60px" value="' + (m.estimatedDurationMin || 120) + '" onchange="app.updateMatchDuration(\'' + m.id + '\', parseInt(this.value,10)||120)" /></label>';
+      html += '<label class="manage-match-label">Eindstand<input type="number" min="0" class="input-score" placeholder="–" value="' + (m.finalScore ? m.finalScore.home : "") + '" onchange="app.setMatchFinalScore(\'' + m.id + "', this.value===''?null:(parseInt(this.value,10)||0), " + (m.finalScore ? m.finalScore.away : 0) + ')" />';
+      html += '<span style="margin:0 2px">–</span><input type="number" min="0" class="input-score" placeholder="–" value="' + (m.finalScore ? m.finalScore.away : "") + '" onchange="app.setMatchFinalScore(\'' + m.id + "', " + (m.finalScore ? m.finalScore.home : 0) + ", this.value===''?null:(parseInt(this.value,10)||0))\" />";
+      if (m.finalScore) html += '<button class="chip-remove" onclick="app.setMatchFinalScore(\'' + m.id + '\', null, null)" aria-label="Eindstand wissen">' + icon("x", 12) + "</button>";
+      html += "</label></div></div>";
+    });
+    html += '<div class="info-note" style="margin-top:8px;margin-bottom:0">"Duur" is de geschatte speeltijd inclusief rust en blessuretijd — daarmee laat de app 5 minuten voor het (verwachte) einde zien wie de lege bekers moet innemen.</div>';
+    html += "</div></div>";
+    return html;
+  }
+
+  /* ================= top-level render ================= */
+  function render() {
+    var root = document.getElementById("app");
+    if (loadError) { root.innerHTML = renderLoadError(); return; }
+    if (!supabaseReady) { root.innerHTML = renderLoading(); return; }
+    if (ui.me) {
+      var myRec = state.members.find(function (m) { return m.id === ui.me.id; });
+      if (!myRec) {
+        // Verzoek is geweigerd (of het lid is verwijderd): terug naar onboarding.
+        ui.me = null; setLocal("me", null);
+      } else if (myRec.status === "pending") {
+        root.innerHTML = renderPendingGate(myRec);
+        return;
+      }
+    }
+    if (!ui.me) { root.innerHTML = renderOnboarding(); return; }
+
+    // Niet-beheerders horen tabbladen als "Stand" niet te zien — val terug als
+    // de opgeslagen navigatie (of een testmodus-wissel) daar per ongeluk op staat.
+    // "instellingen" valt hier bewust buiten (zie ADMIN_ONLY_TABS hierboven).
+    if (!isAdmin() && ADMIN_ONLY_TABS.indexOf(ui.activeTab) !== -1) ui.activeTab = "aanmelden";
+
+    if (PARTICIPANT_TABS.indexOf(ui.activeTab) !== -1 && !ui.explicitlyBrowsing && state.matches.length > 0 && !ui.selectedMatchId) {
+      var nextId = getNextMatchId(state.matches);
+      if (nextId) ui.selectedMatchId = nextId;
+    }
+
+    var html = '<div class="shell">' + renderHeader() + '<main class="main">';
+    if (PARTICIPANT_TABS.indexOf(ui.activeTab) !== -1) {
+      var selected = ui.selectedMatchId ? state.matches.find(function (m) { return m.id === ui.selectedMatchId; }) : null;
+      if (!selected) {
+        html += renderNoMatch();
+      } else if (ui.activeTab === "aanmelden") {
+        html += renderAanmeldenTab(selected);
+      } else if (ui.activeTab === "beurten") {
+        html += renderBeurtenTab(selected);
+      } else if (ui.activeTab === "afrekening") {
+        html += renderAfrekeningTab(selected);
+      }
+    } else if (ui.activeTab === "stand") {
+      html += renderStandTab();
+    } else if (ui.activeTab === "instellingen") {
+      html += renderInstellingenTab();
+    }
+    html += "</main></div>";
+    root.innerHTML = html;
+  }
+
+  function renderLoading() {
+    return '<div class="shell"><div class="loading-wrap">' + icon("loader", 20) + " Verbinden met de database…</div></div>";
+  }
+
+  function renderLoadError() {
+    var html = '<div class="shell"><div class="onboard">';
+    html += alkmaarWapen(52);
+    html += '<h1 class="onboard-title" style="font-size:22px">Kan niet verbinden</h1>';
+    html += '<p class="onboard-sub">' + esc(loadError) + "</p>";
+    html += '<button class="btn-primary" onclick="location.reload()">Opnieuw proberen</button>';
+    html += "</div></div>";
+    return html;
+  }
+
+  /* ================= boot ================= */
+  (async function boot() {
+    render(); // toont het laadscherm (supabaseReady is nog false)
+    await initSupabase();
+    setInterval(render, 30000); // ververst tijdgevoelige UI (bv. voorspellen-op-slot, reveal-tijd) zonder te publiceren
+  })();
+})();
+</script>
+</body>
+</html>
