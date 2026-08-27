@@ -1,0 +1,23 @@
+name: Live AZ-uitslag ophalen
+
+# Let op: GitHub schakelt scheduled workflows automatisch uit als de repo 60
+# dagen lang geen commits krijgt. Merk je dat de live stand het niet meer
+# doet na de zomerstop, kijk dan bij het tabblad "Actions" in je repository
+# of deze workflow nog aan staat en zet 'm zo nodig weer aan.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {} # handig om 'm handmatig te testen via het Actions-tabblad
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Live uitslag ophalen en naar Supabase schrijven
+        env:
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+        run: node scripts/fetch-live-score.mjs
