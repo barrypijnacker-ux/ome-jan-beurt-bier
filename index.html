@@ -115,11 +115,13 @@
     color: var(--gold); padding: 8px 16px; font-size: 12.5px; font-weight: 600;
   }
   .test-banner-btn { background: var(--gold); color: #3a2e00; border: none; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-  .tabbar { display: flex; border-bottom: 1px solid var(--line); background: #fff; overflow-x: auto; }
+  /* flex: 0 0 auto (i.p.v. 1 1 auto) is bewust: zo blijft elke tab-tekst
+     volledig leesbaar op een smal scherm — de balk als geheel scrollt dan
+     opzij in plaats van dat elke tab-tekst wordt afgekapt met "...". */
+  .tabbar { display: flex; border-bottom: 1px solid var(--line); background: #fff; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .tab-btn {
-    flex: 1 1 auto; min-width: 0; padding: 11px 4px; background: none; border: none; font-size: 11px; color: var(--muted); font-weight: 500;
+    flex: 0 0 auto; padding: 11px 8px; background: none; border: none; font-size: 11.5px; color: var(--muted); font-weight: 500;
     display: flex; align-items: center; justify-content: center; gap: 3px; border-bottom: 2px solid transparent; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis;
   }
   .tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
   .main { padding: 18px 16px 28px; min-height: 200px; }
@@ -136,6 +138,10 @@
     flex: 1; min-width: 0; padding: 9px 11px; border-radius: 7px; border: 1px solid var(--line);
     font-size: 14px; background: #fff; color: var(--ink);
   }
+  /* Binnen een rij met meerdere velden naast elkaar (datum/tijd/tegenstander)
+     moet elk veld een minimumbreedte houden — anders knijpt flexbox ze allemaal
+     even smal in plaats van de rij netjes over twee regels te verdelen. */
+  .form-row > .input { flex: 1 1 130px; min-width: 130px; }
   .toggle-group { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
   .toggle-btn { padding: 9px 14px; background: #fff; border: none; font-size: 13px; color: var(--muted); }
   .toggle-btn.active { background: var(--red); color: #fff; }
@@ -273,7 +279,8 @@
     display: flex; align-items: center; justify-content: center; color: var(--ink); flex-shrink: 0; padding: 0;
   }
 
-  .stand-table { background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; overflow-x: auto; }
+  .stand-table { background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .scroll-hint { display: flex; align-items: center; gap: 2px; justify-content: flex-end; font-size: 10.5px; color: var(--muted); margin: -4px 2px 6px; }
   .stand-head-row { display: flex; padding: 9px 12px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--line); font-weight: 700; min-width: 320px; }
   .stand-row { display: flex; padding: 10px 12px; font-size: 13.5px; border-bottom: 1px solid var(--line); min-width: 320px; }
   .stand-row:last-child { border-bottom: none; }
@@ -291,10 +298,14 @@
   .manage-match-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 4px; font-size: 13px; gap: 8px; }
   .manage-match-detail-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 2px 0 6px; }
   .manage-match-label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); font-weight: 500; }
-  .input-tiny { width: 92px; padding: 5px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12.5px; }
+  .input-tiny { width: 112px; padding: 5px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12.5px; }
   .input-score { width: 44px; padding: 5px 4px; border-radius: 6px; border: 1px solid var(--line); font-size: 12.5px; text-align: center; }
   .predict-score-row { display: flex; align-items: center; gap: 2px; }
   .predict-final-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  /* De twee score-invoervelden (en het streepje ertussen) horen bij elkaar en
+     mogen dus nooit los van elkaar naar een nieuwe regel springen — anders
+     staat er ineens één losse invoer in z'n eentje op een regel. */
+  .score-input-pair { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .predict-win-badge { font-size: 11px; font-weight: 700; color: #fff; background: var(--good); padding: 2px 7px; border-radius: 10px; margin-left: 6px; white-space: nowrap; }
   .predict-loss-badge { font-size: 11px; font-weight: 500; color: var(--muted); background: var(--paper); padding: 2px 7px; border-radius: 10px; margin-left: 6px; white-space: nowrap; }
 
@@ -620,6 +631,7 @@
   var supabaseReady = false;
   var loadError = "";
   var saveError = false;
+  var autoLiveScore = null; // { date, opponent, azIsHome, home, away, status, updatedAt } | null
 
   async function initSupabase() {
     try {
@@ -641,16 +653,36 @@
         var ins = await sb.from("kv_store").upsert({ key: "app_state", value: state, updated_at: new Date().toISOString() });
         if (ins.error) throw ins.error;
       }
+      // De automatisch opgehaalde live-uitslag (zie .github/workflows/live-score.yml)
+      // leeft in een eigen rijtje, key "live_score" — expres los van "app_state"
+      // zodat dat achtergrondscriptje nooit een wijziging van een gebruiker kan
+      // overschrijven. Ontbreekt de rij nog (workflow nog niet ingesteld/gedraaid),
+      // dan blijft autoLiveScore gewoon leeg en valt de app terug op het
+      // handmatige live-standveld.
+      try {
+        var liveRes = await sb.from("kv_store").select("value").eq("key", "live_score").maybeSingle();
+        if (!liveRes.error && liveRes.data && liveRes.data.value) autoLiveScore = liveRes.data.value;
+      } catch (e2) { /* geen probleem als dit (nog) niet lukt */ }
+
       supabaseReady = true;
       render();
-      // Live-sync: zodra iemand anders (of dit apparaat, via een andere tab)
-      // iets opslaat, komt de nieuwe staat hier binnen zonder dat er ooit een
-      // volledige pagina-herlaad nodig is — dus ook geen navigatie die "springt".
-      sb.channel("kv_store_app_state_changes")
-        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "kv_store", filter: "key=eq.app_state" }, function (payload) {
+      // Live-sync: zodra iemand anders (of dit apparaat, via een andere tab, of
+      // het achtergrondscriptje voor live-uitslagen) iets opslaat, komt de
+      // nieuwe staat hier binnen zonder dat er ooit een volledige pagina-herlaad
+      // nodig is — dus ook geen navigatie die "springt". Eén kanaal, en we
+      // kijken zelf naar welke sleutel (key) het gaat om te bepalen wat we
+      // moeten bijwerken.
+      sb.channel("kv_store_changes")
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "kv_store" }, function (payload) {
           if (!payload || !payload.new) return;
-          state = normalizeState(payload.new.value);
-          savePending = false;
+          if (payload.new.key === "app_state") {
+            state = normalizeState(payload.new.value);
+            savePending = false;
+          } else if (payload.new.key === "live_score") {
+            autoLiveScore = payload.new.value;
+          } else {
+            return;
+          }
           render();
         })
         .subscribe();
@@ -1273,25 +1305,44 @@
     });
     html += "</div>";
 
+    // Automatisch opgehaalde stand (via football-data.org, zie
+    // .github/workflows/live-score.yml) telt alleen mee als 'ie bij déze
+    // wedstrijd hoort (zelfde datum) — anders staat er nog een oude/andere
+    // wedstrijd in dat rijtje.
+    var auto = autoLiveScore && autoLiveScore.date === match.date ? autoLiveScore : null;
+    var autoLive = auto && (auto.status === "IN_PLAY" || auto.status === "PAUSED");
+    var autoFinished = auto && auto.status === "FINISHED";
+
     html += '<div class="section-head">Stand</div><div class="card">';
     if (match.finalScore) {
       html += '<div style="font-size:14px;font-weight:700">Eindstand: AZ ' + match.finalScore.home + " – " + match.finalScore.away + " " + esc(match.opponent) + "</div>";
+    } else if (autoLive || autoFinished) {
+      html += '<div style="display:flex;align-items:center;gap:8px">';
+      if (autoLive) html += '<span class="live-dot" aria-hidden="true"></span>';
+      var autoLabel = autoFinished ? "Eindstand (automatisch)" : "Live stand (automatisch)";
+      html += '<div style="font-size:14px;font-weight:700">' + autoLabel + ": AZ " + auto.home + " – " + auto.away + " " + esc(match.opponent) + "</div></div>";
+      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Opgehaald om ' + new Date(auto.updatedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + " uur bij football-data.org (elke 5 minuten ververst). " + (autoFinished ? "Dit is de stand na 90 minuten, verlenging telt niet mee." : "") + "</div>";
+      if (isAdmin() && autoFinished) {
+        var takeOverClick = "app.setMatchFinalScore('" + match.id + "', " + auto.home + ", " + auto.away + ")";
+        html += '<button class="btn-ghost-sm" style="margin-top:8px" onclick="' + esc(takeOverClick) + '">Overnemen als officiële eindstand ' + icon("chevronRight", 14) + "</button>";
+      }
     } else if (match.liveScore) {
       html += '<div style="display:flex;align-items:center;gap:8px">';
       html += '<span class="live-dot" aria-hidden="true"></span>';
       html += '<div style="font-size:14px;font-weight:700">Live stand: AZ ' + match.liveScore.home + " – " + match.liveScore.away + " " + esc(match.opponent) + "</div></div>";
-      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Bijgewerkt om ' + new Date(match.liveScore.updatedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + ' uur — dit vult de beheerder nu nog handmatig in, dus reken niet op de seconde.</div>';
+      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Bijgewerkt om ' + new Date(match.liveScore.updatedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + ' uur — dit vulde de beheerder handmatig in.</div>';
     } else {
-      html += '<div class="info-note" style="margin-bottom:0">Nog geen stand — die vult de beheerder handmatig in. Checken, bier halen en afrekenen loopt gewoon door.</div>';
+      html += '<div class="info-note" style="margin-bottom:0">Nog geen stand — die vult de beheerder handmatig in, of komt automatisch binnen zodra de wedstrijd begint. Checken, bier halen en afrekenen loopt gewoon door.</div>';
     }
     if (isAdmin()) {
-      html += '<div class="predict-final-row" style="margin-top:' + (match.finalScore || match.liveScore ? "10px" : "8px") + '">';
-      html += '<span style="font-size:12.5px;color:var(--muted);font-weight:500">Live tussenstand:</span>';
+      html += '<div class="predict-final-row" style="margin-top:' + (match.finalScore || match.liveScore || auto ? "10px" : "8px") + '">';
+      html += '<span style="font-size:12.5px;color:var(--muted);font-weight:500">Live tussenstand (handmatig):</span>';
+      html += '<span class="score-input-pair">';
       html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.liveScore ? match.liveScore.home : "") + '" onchange="app.setMatchLiveScore(\'' + match.id + "', this.value===''?null:(parseInt(this.value,10)||0), " + (match.liveScore ? match.liveScore.away : 0) + ')" />';
       html += "<span>–</span>";
       html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.liveScore ? match.liveScore.away : "") + '" onchange="app.setMatchLiveScore(\'' + match.id + "', " + (match.liveScore ? match.liveScore.home : 0) + ", this.value===''?null:(parseInt(this.value,10)||0))\" />";
-      html += "</div>";
-      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Nu nog handmatig; dit veld staat los van de eindstand zodat een live-uitslagenbron dit later automatisch kan bijwerken.</div>';
+      html += "</span></div>";
+      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Alleen nodig als de automatische koppeling er niet is (bijv. bekerwedstrijden) — die heeft anders altijd voorrang zolang die bij deze wedstrijd hoort.</div>';
     }
     html += "</div>";
 
@@ -1324,10 +1375,11 @@
     }
     if (isAdmin()) {
       html += '<div class="predict-final-row"><span style="font-size:12.5px;color:var(--muted);font-weight:500">Eindstand invullen:</span>';
+      html += '<span class="score-input-pair">';
       html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.finalScore ? match.finalScore.home : "") + '" onchange="app.setMatchFinalScore(\'' + match.id + "', this.value===''?null:(parseInt(this.value,10)||0), " + (match.finalScore ? match.finalScore.away : 0) + ')" />';
       html += "<span>–</span>";
       html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.finalScore ? match.finalScore.away : "") + '" onchange="app.setMatchFinalScore(\'' + match.id + "', " + (match.finalScore ? match.finalScore.home : 0) + ", this.value===''?null:(parseInt(this.value,10)||0))\" />";
-      html += "</div>";
+      html += "</span></div>";
     }
     html += "</div>";
     return html;
@@ -1549,6 +1601,7 @@
     if (list.length === 0) return "";
     var html = '<div class="section-head">Volledige berekening</div>';
     html += '<div class="info-note">Alle onderdelen los, zodat je zelf kunt natellen: wat je haalde (bier + statiegeld), wat je zelf dronk, welk statiegeld op jouw bekers is terugontvangen, jouw aandeel in kwijtgeraakte bekers en de gok-bonus/malus. Netto in <span style="color:var(--good);font-weight:700">groen</span> = jij krijgt geld, in <span style="color:var(--red);font-weight:700">rood</span> = jij moet nog betalen (zie "Afrekenen" hieronder voor wie aan wie).</div>';
+    html += '<div class="scroll-hint">' + icon("chevronRight", 11) + " sleep opzij voor alle kolommen</div>";
     html += '<div class="stand-table" style="margin-bottom:12px"><div class="stand-head-row" style="min-width:600px">';
     html += '<span class="stand-name" style="font-weight:700">Naam</span><span class="stand-col">Gehaald</span><span class="stand-col">Gedronken</span><span class="stand-col">Statiegeld</span><span class="stand-col">Kwijt</span><span class="stand-col">Gok</span><span class="stand-col">Netto</span>';
     html += "</div>";
