@@ -370,6 +370,9 @@
   function getNextMatchId(matches) {
     if (!matches || matches.length === 0) return null;
     var now = Date.now();
+    // De "14:30" hier is puur een interne sorteerhulp (welke wedstrijd openen we
+    // standaard) als de tijd nog niet is ingevuld — dit wordt nooit aan de
+    // gebruiker getoond als zijnde de echte aftraptijd, zie renderAanmeldenTab.
     var withTs = matches.map(function (m) {
       return { id: m.id, ts: new Date(m.date + "T" + (m.time || "14:30") + ":00").getTime() };
     });
@@ -384,10 +387,13 @@
 
   // Geschatte eindtijd (aftrap + speeltijd incl. rust/blessuretijd, standaard 2 uur,
   // per wedstrijd aan te passen bij Instellingen) — gebruikt om vlak voor het einde
-  // een duidelijk inleverpunt voor de lege bekers aan te wijzen.
+  // een duidelijk inleverpunt voor de lege bekers aan te wijzen. Zonder een echt
+  // ingevulde aftraptijd kunnen we dit niet betrouwbaar schatten (voorheen viel dit
+  // stilzwijgend terug op 14:30, ook als de wedstrijd om bv. 20:00 begon) — dan
+  // liever geen banner tonen dan een banner op een verzonnen tijdstip.
   function estimatedEndMs(match) {
-    if (!match || !match.date) return null;
-    var kickoffMs = new Date(match.date + "T" + (match.time || "14:30") + ":00").getTime();
+    if (!match || !match.date || !match.time) return null;
+    var kickoffMs = new Date(match.date + "T" + match.time + ":00").getTime();
     return kickoffMs + (match.estimatedDurationMin || 120) * 60 * 1000;
   }
 
@@ -631,7 +637,6 @@
   var supabaseReady = false;
   var loadError = "";
   var saveError = false;
-  var autoLiveScore = null; // { date, opponent, azIsHome, home, away, status, updatedAt } | null
 
   async function initSupabase() {
     try {
@@ -653,37 +658,19 @@
         var ins = await sb.from("kv_store").upsert({ key: "app_state", value: state, updated_at: new Date().toISOString() });
         if (ins.error) throw ins.error;
       }
-      // De automatisch opgehaalde live-uitslag (zie .github/workflows/live-score.yml)
-      // leeft in een eigen rijtje, key "live_score" — expres los van "app_state"
-      // zodat dat achtergrondscriptje nooit een wijziging van een gebruiker kan
-      // overschrijven. Ontbreekt de rij nog (workflow nog niet ingesteld/gedraaid),
-      // dan blijft autoLiveScore gewoon leeg en valt de app terug op het
-      // handmatige live-standveld.
-      try {
-        var liveRes = await sb.from("kv_store").select("value").eq("key", "live_score").maybeSingle();
-        if (!liveRes.error && liveRes.data && liveRes.data.value) autoLiveScore = liveRes.data.value;
-      } catch (e2) { /* geen probleem als dit (nog) niet lukt */ }
-
       supabaseReady = true;
       render();
-      // Live-sync: zodra iemand anders (of dit apparaat, via een andere tab, of
-      // het achtergrondscriptje voor live-uitslagen) iets opslaat, komt de
-      // nieuwe staat hier binnen zonder dat er ooit een volledige pagina-herlaad
-      // nodig is — dus ook geen navigatie die "springt". Eén kanaal, en we
-      // kijken zelf naar welke sleutel (key) het gaat om te bepalen wat we
-      // moeten bijwerken.
+      // Live-sync: zodra iemand anders (of dit apparaat, via een andere tab)
+      // iets opslaat, komt de nieuwe staat hier binnen zonder dat er ooit een
+      // volledige pagina-herlaad nodig is — dus ook geen navigatie die
+      // "springt". We filteren op deze ene rij (key = app_state), zodat we
+      // geen updates van andere rijen in kv_store hoeven te negeren.
       sb.channel("kv_store_changes")
-        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "kv_store" }, function (payload) {
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "kv_store", filter: "key=eq.app_state" }, function (payload) {
           if (!payload || !payload.new) return;
-          if (payload.new.key === "app_state") {
-            state = normalizeState(payload.new.value);
-            savePending = false;
-          } else if (payload.new.key === "live_score") {
-            autoLiveScore = payload.new.value;
-          } else {
-            return;
-          }
-          render();
+          state = normalizeState(payload.new.value);
+          savePending = false;
+          scheduleRender();
         })
         .subscribe();
     } catch (e) {
@@ -705,7 +692,8 @@
     return state.matchData[id];
   }
 
-  async function publishState(next) {
+  async function publishState(next, attempt) {
+    attempt = attempt || 1;
     if (!sb) { render(); return; }
     savePending = true;
     render();
@@ -719,6 +707,9 @@
       // onschuldige dubbele render) en stuurt de update naar alle andere
       // geopende apparaten door.
     } catch (e) {
+      // Probeer het bij een wankele verbinding een paar keer opnieuw voordat
+      // we het als mislukt tonen, i.p.v. meteen stilzwijgend op te geven.
+      if (attempt < 3) { await sleep(400 * attempt); return publishState(next, attempt + 1); }
       savePending = false;
       saveError = true;
       console.error("opslaan mislukt", e);
@@ -727,6 +718,13 @@
   }
 
   // Discrete, betekenisvolle acties (aanvinken, trekken, bevestigen): meteen publiceren.
+  // Alleen nog gebruikt voor de minder frequente, meestal door één beheerder
+  // tegelijk uitgevoerde acties (leden/wedstrijden beheren, instellingen).
+  // De acties die tijdens een wedstrijd door veel mensen tegelijk worden
+  // gebruikt (aanmelden, gokken, "ik wil bier", een ronde trekken/afronden,
+  // bekers inleveren) lopen via callRpc() hieronder — dat schrijft atomair op
+  // de database zelf, zodat gelijktijdige tikken van verschillende mensen
+  // elkaar nooit meer kunnen overschrijven.
   function immediateMutate(mutator) {
     clearTimeout(debounceTimer);
     var base = debounceDraft || state;
@@ -735,6 +733,40 @@
     state = next;
     render();
     publishState(next);
+  }
+
+  // Werkt de lokale staat meteen bij voor direct, soepel voelend gevoel bij
+  // de acties die via callRpc() naar de database gaan — de binnenkomende
+  // realtime-update herstelt/bevestigt dit vervolgens vanzelf met de echte,
+  // door de database bevestigde staat (ook die van andere aanwezigen).
+  function localMutate(mutator) {
+    var next = mutator(clone(state));
+    state = next || state;
+    render();
+  }
+
+  // Roept één van de atomaire database-functies aan (zie supabase_setup.sql,
+  // functienamen "bb_..."). Probeert het bij een mislukking een paar keer
+  // opnieuw (bijv. een wankele wifi-verbinding) voordat de fout pas echt
+  // getoond wordt.
+  async function callRpc(fnName, args, attempt) {
+    attempt = attempt || 1;
+    if (!sb) return;
+    savePending = true;
+    render();
+    try {
+      var res = await sb.rpc(fnName, args);
+      if (res.error) throw res.error;
+      saveError = false;
+      savePending = false;
+      render();
+    } catch (e) {
+      if (attempt < 3) { await sleep(400 * attempt); return callRpc(fnName, args, attempt + 1); }
+      savePending = false;
+      saveError = true;
+      console.error(fnName + " mislukt", e);
+      render();
+    }
   }
   // Snelle opeenvolgende tikken (+/- steppers): bundelen tot één publicatie.
   function debouncedMutate(mutator) {
@@ -768,7 +800,7 @@
       nameInput: "",
       joinNameInput: "",
       newMemberName: "",
-      newMatch: { date: "", time: "14:30", opponent: "", competition: "Eredivisie", isHome: true },
+      newMatch: { date: "", time: "", opponent: "", competition: "Eredivisie", isHome: true },
       adminCodeInput: ""
     }
   };
@@ -854,8 +886,11 @@
   app.addMatch = function () {
     var nm = ui.drafts.newMatch;
     if (!nm.date || !(nm.opponent || "").trim()) return;
-    var match = { id: uid(), date: nm.date, time: nm.time || "14:30", opponent: nm.opponent.trim(), competition: nm.competition, isHome: nm.isHome, finalScore: null, finalScoreAt: null };
-    ui.drafts.newMatch = { date: "", time: "14:30", opponent: "", competition: "Eredivisie", isHome: true };
+    // Geen stille terugval meer op 14:30: staat de aftraptijd nog niet ingevuld,
+    // dan blijft match.time gewoon leeg (en tonen we dat duidelijk in de UI),
+    // in plaats van een verzonnen tijd te laten doorgaan voor de echte.
+    var match = { id: uid(), date: nm.date, time: nm.time || null, opponent: nm.opponent.trim(), competition: nm.competition, isHome: nm.isHome, finalScore: null, finalScoreAt: null };
+    ui.drafts.newMatch = { date: "", time: "", opponent: "", competition: "Eredivisie", isHome: true };
     ui.showAddMatch = false;
     immediateMutate(function (draft) { draft.matches = draft.matches.concat([match]); return draft; });
   };
@@ -876,6 +911,17 @@
   app.updateMatchDuration = function (id, minutes) {
     immediateMutate(function (draft) {
       draft.matches = draft.matches.map(function (m) { return m.id === id ? Object.assign({}, m, { estimatedDurationMin: Math.max(30, minutes || 120) }) : m; });
+      return draft;
+    });
+  };
+  // Beheerder bevestigt (of heropent) de afrekening van een wedstrijd — puur
+  // een zichtbaar vinkje/checkpoint ("iedereen heeft ontvangen/betaald"),
+  // verandert niets aan de onderliggende cijfers. Zeldzame, door één
+  // beheerder tegelijk uitgevoerde actie, dus de gewone (hele-staat)
+  // publicatieweg is hier prima.
+  app.setMatchSettled = function (matchId, settled) {
+    immediateMutate(function (draft) {
+      draft.matches = draft.matches.map(function (m) { return m.id === matchId ? Object.assign({}, m, { settled: settled, settledAt: settled ? Date.now() : null }) : m; });
       return draft;
     });
   };
@@ -907,9 +953,9 @@
     var existingKeys = {};
     state.matches.forEach(function (m) { existingKeys[m.date + "|" + m.opponent.toLowerCase()] = true; });
     var toAdd = AZ_HOME_FIXTURES_2026_27.filter(function (f) { return !existingKeys[f.date + "|" + f.opponent.toLowerCase()]; })
-      .map(function (f) { return { id: uid(), date: f.date, time: "14:30", opponent: f.opponent, competition: f.competition, isHome: true, approx: !!f.approx, finalScore: null, finalScoreAt: null }; });
+      .map(function (f) { return { id: uid(), date: f.date, time: null, opponent: f.opponent, competition: f.competition, isHome: true, approx: !!f.approx, finalScore: null, finalScoreAt: null }; });
     if (toAdd.length === 0) { ui.importMsg = "Alle thuiswedstrijden stonden er al in."; render(); return; }
-    ui.importMsg = toAdd.length + " thuiswedstrijden toegevoegd (aftraptijd standaard op 14:30 — pas dit per wedstrijd aan bij Instellingen zodra de officiele tijd bekend is). Beker- en Europese loting volgen later in het seizoen.";
+    ui.importMsg = toAdd.length + " thuiswedstrijden toegevoegd zonder aftraptijd — vul die per wedstrijd in bij Instellingen zodra de officiele tijd bekend is (zolang dat niet gebeurd is, sluit het gokken niet vanzelf). Beker- en Europese loting volgen later in het seizoen.";
     immediateMutate(function (draft) { draft.matches = draft.matches.concat(toAdd); return draft; });
   };
   app.addMember = function () {
@@ -948,12 +994,13 @@
   };
 
   app.toggleCheckin = function (matchId, personId, checked) {
-    immediateMutate(function (draft) {
+    localMutate(function (draft) {
       var md = draft.matchData[matchId] || (draft.matchData[matchId] = emptyMatchData());
       if (checked) { if (md.checkins.indexOf(personId) === -1) md.checkins = md.checkins.concat([personId]); }
       else { md.checkins = md.checkins.filter(function (id) { return id !== personId; }); }
       return draft;
     });
+    callRpc("bb_toggle_checkin", { p_match_id: matchId, p_person_id: personId, p_checked: checked });
   };
 
   // Zelf-gemeld: iedereen geeft voor zichzelf aan "ik wil bier" of "ik sla over".
@@ -965,38 +1012,56 @@
     return md.activeRound;
   }
   app.respondWant = function (matchId, personId) {
-    immediateMutate(function (draft) {
-      var md = draft.matchData[matchId];
-      var ar = ensureActiveRound(md);
-      if (ar.stage !== "composing") return draft;
-      var cur = ar.responses[personId];
-      if (cur && cur.qty > 0) delete ar.responses[personId];
-      else ar.responses[personId] = { qty: (cur && cur.qty > 0) ? cur.qty : 1 };
+    var md = matchData(matchId);
+    var ar = ensureActiveRound(md);
+    if (ar.stage !== "composing") return;
+    var cur = ar.responses[personId];
+    var willDelete = !!(cur && cur.qty > 0);
+    var qty = willDelete ? 0 : ((cur && cur.qty > 0) ? cur.qty : 1);
+    localMutate(function (draft) {
+      var dar = ensureActiveRound(draft.matchData[matchId]);
+      if (dar.stage !== "composing") return draft;
+      if (willDelete) delete dar.responses[personId]; else dar.responses[personId] = { qty: qty };
       return draft;
     });
+    callRpc("bb_set_round_response", { p_match_id: matchId, p_person_id: personId, p_qty: qty, p_delete: willDelete });
   };
   app.respondSkip = function (matchId, personId) {
-    immediateMutate(function (draft) {
-      var md = draft.matchData[matchId];
-      var ar = ensureActiveRound(md);
-      if (ar.stage !== "composing") return draft;
-      var cur = ar.responses[personId];
-      if (cur && cur.qty === 0) delete ar.responses[personId];
-      else ar.responses[personId] = { qty: 0 };
+    var md = matchData(matchId);
+    var ar = ensureActiveRound(md);
+    if (ar.stage !== "composing") return;
+    var cur = ar.responses[personId];
+    var willDelete = !!(cur && cur.qty === 0);
+    localMutate(function (draft) {
+      var dar = ensureActiveRound(draft.matchData[matchId]);
+      if (dar.stage !== "composing") return draft;
+      if (willDelete) delete dar.responses[personId]; else dar.responses[personId] = { qty: 0 };
       return draft;
     });
+    callRpc("bb_set_round_response", { p_match_id: matchId, p_person_id: personId, p_qty: 0, p_delete: willDelete });
   };
+  var qtyDebounceTimers = {};
   app.setResponseQty = function (matchId, personId, qty) {
-    debouncedMutate(function (draft) {
+    qty = Math.max(1, qty);
+    localMutate(function (draft) {
       var ar = draft.matchData[matchId].activeRound;
       if (!ar || ar.stage !== "composing" || !ar.responses[personId]) return draft;
-      ar.responses[personId] = { qty: Math.max(1, qty) };
+      ar.responses[personId] = { qty: qty };
       return draft;
     });
+    // Alleen nog ter beperking van het aantal netwerkverzoeken bij snel
+    // achter elkaar tikken op +/− — de juistheid hangt hier niet meer van af
+    // (dat regelt bb_set_round_response zelf, atomair, op de database).
+    var key = matchId + "|" + personId;
+    clearTimeout(qtyDebounceTimers[key]);
+    qtyDebounceTimers[key] = setTimeout(function () {
+      callRpc("bb_set_round_response", { p_match_id: matchId, p_person_id: personId, p_qty: qty, p_delete: false });
+    }, 400);
   };
   app.cancelRound = function (matchId) {
     ui.drawing = false; ui.spinName = "";
-    immediateMutate(function (draft) { draft.matchData[matchId].activeRound = null; return draft; });
+    localMutate(function (draft) { draft.matchData[matchId].activeRound = null; return draft; });
+    callRpc("bb_cancel_round", { p_match_id: matchId });
   };
   app.startDraw = async function (matchId) {
     var md = state.matchData[matchId];
@@ -1041,37 +1106,52 @@
     var base = Math.floor(wantedTotal / winners.length);
     var extra = wantedTotal % winners.length;
     var halers = winners.map(function (personId, i) { return { personId: personId, broughtBack: base + (i < extra ? 1 : 0), emptyCupsIn: 0 }; });
-    immediateMutate(function (draft) {
+    localMutate(function (draft) {
       var ar = draft.matchData[matchId].activeRound;
       if (!ar || ar.stage !== "composing") return draft;
       ar.stage = "drawn"; ar.halers = halers;
       return draft;
     });
+    callRpc("bb_start_draw_round", { p_match_id: matchId, p_halers: halers });
   };
+  var haulDebounceTimers = {};
   app.updateHalerBroughtBack = function (matchId, personId, n) {
-    debouncedMutate(function (draft) {
+    n = clamp0(n);
+    localMutate(function (draft) {
       var ar = draft.matchData[matchId].activeRound;
       if (!ar) return draft;
-      ar.halers = ar.halers.map(function (h) { return h.personId === personId ? Object.assign({}, h, { broughtBack: clamp0(n) }) : h; });
+      ar.halers = ar.halers.map(function (h) { return h.personId === personId ? Object.assign({}, h, { broughtBack: n }) : h; });
       return draft;
     });
+    var key = "bb|" + matchId + "|" + personId;
+    clearTimeout(haulDebounceTimers[key]);
+    haulDebounceTimers[key] = setTimeout(function () {
+      callRpc("bb_update_haler_progress", { p_match_id: matchId, p_person_id: personId, p_brought_back: n, p_empty_cups_in: null });
+    }, 400);
   };
   app.updateHalerEmptyCups = function (matchId, personId, n) {
-    debouncedMutate(function (draft) {
+    n = clamp0(n);
+    localMutate(function (draft) {
       var ar = draft.matchData[matchId].activeRound;
       if (!ar) return draft;
-      ar.halers = ar.halers.map(function (h) { return h.personId === personId ? Object.assign({}, h, { emptyCupsIn: clamp0(n) }) : h; });
+      ar.halers = ar.halers.map(function (h) { return h.personId === personId ? Object.assign({}, h, { emptyCupsIn: n }) : h; });
       return draft;
     });
+    var key = "ec|" + matchId + "|" + personId;
+    clearTimeout(haulDebounceTimers[key]);
+    haulDebounceTimers[key] = setTimeout(function () {
+      callRpc("bb_update_haler_progress", { p_match_id: matchId, p_person_id: personId, p_brought_back: null, p_empty_cups_in: n });
+    }, 400);
   };
   app.confirmRound = function (matchId) {
-    immediateMutate(function (draft) {
+    var roundId = uid();
+    localMutate(function (draft) {
       var md = draft.matchData[matchId];
       var ar = md.activeRound;
       if (!ar) return draft;
       var responses = ar.responses || {};
       var finished = {
-        id: uid(),
+        id: roundId,
         wanters: Object.keys(responses).filter(function (pid) { return responses[pid].qty > 0; }).map(function (pid) { return { personId: pid, qty: responses[pid].qty }; }),
         halers: (ar.halers || []).map(function (h) { return { personId: h.personId, broughtBack: h.broughtBack || 0, emptyCupsIn: h.emptyCupsIn || 0 }; }),
         ts: Date.now()
@@ -1081,6 +1161,7 @@
       md.activeRound = null; md.rounds = (md.rounds || []).concat([finished]); md.returns = returns;
       return draft;
     });
+    callRpc("bb_confirm_round", { p_match_id: matchId, p_round_id: roundId });
   };
   app.removeRound = function (matchId, roundId) {
     immediateMutate(function (draft) {
@@ -1094,41 +1175,53 @@
   // deelverzameling namen te zien, dus dit kan nooit dubbel voor dezelfde
   // persoon worden ingevuld door twee gelijktijdige halers.
   app.setReturn = function (matchId, personId, cups) {
-    immediateMutate(function (draft) {
+    cups = clamp0(cups);
+    localMutate(function (draft) {
       var md = draft.matchData[matchId];
       var returns = Object.assign({}, md.returns);
       if (cups > 0) returns[personId] = cups; else delete returns[personId];
       md.returns = returns;
       return draft;
     });
+    callRpc("bb_set_return", { p_match_id: matchId, p_person_id: personId, p_cups: cups });
   };
   app.bumpReturn = function (matchId, personId, cups) {
-    debouncedMutate(function (draft) {
+    cups = clamp0(cups);
+    localMutate(function (draft) {
       var md = draft.matchData[matchId];
       var returns = Object.assign({}, md.returns);
       if (cups > 0) returns[personId] = cups; else delete returns[personId];
       md.returns = returns;
       return draft;
     });
+    var key = "ret|" + matchId + "|" + personId;
+    clearTimeout(haulDebounceTimers[key]);
+    haulDebounceTimers[key] = setTimeout(function () {
+      callRpc("bb_set_return", { p_match_id: matchId, p_person_id: personId, p_cups: cups });
+    }, 400);
   };
   app.togglePrediction = function (matchId, personId, on) {
-    immediateMutate(function (draft) {
+    localMutate(function (draft) {
       var md = draft.matchData[matchId];
       var predictions = Object.assign({}, md.predictions);
       if (on) predictions[personId] = { home: 0, away: 0 }; else delete predictions[personId];
       md.predictions = predictions;
       return draft;
     });
+    callRpc("bb_set_prediction", { p_match_id: matchId, p_person_id: personId, p_home: 0, p_away: 0, p_delete: !on });
   };
   app.setPredictionScore = function (matchId, personId, home, away) {
-    immediateMutate(function (draft) {
-      var md = draft.matchData[matchId];
-      var predictions = Object.assign({}, md.predictions);
-      var cur = predictions[personId] || { home: 0, away: 0 };
-      predictions[personId] = { home: home == null ? cur.home : clamp0(home), away: away == null ? cur.away : clamp0(away) };
-      md.predictions = predictions;
+    var md = matchData(matchId);
+    var cur = (md.predictions || {})[personId] || { home: 0, away: 0 };
+    var next = { home: home == null ? cur.home : clamp0(home), away: away == null ? cur.away : clamp0(away) };
+    localMutate(function (draft) {
+      var dmd = draft.matchData[matchId];
+      var predictions = Object.assign({}, dmd.predictions);
+      predictions[personId] = next;
+      dmd.predictions = predictions;
       return draft;
     });
+    callRpc("bb_set_prediction", { p_match_id: matchId, p_person_id: personId, p_home: next.home, p_away: next.away, p_delete: false });
   };
   app.shareLink = function (text) { window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank"); };
 
@@ -1245,7 +1338,7 @@
       html += '<div class="match-switch-row"><select class="match-switch-select" onchange="app.selectMatch(this.value)">';
       sorted.forEach(function (m) {
         var d = m.date ? new Date(m.date + "T12:00:00") : null;
-        var label = (d ? d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : m.date) + " · AZ–" + m.opponent;
+        var label = (m.settled ? "✓ " : "") + (d ? d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : m.date) + " · AZ–" + m.opponent;
         html += '<option value="' + m.id + '" ' + (m.id === match.id ? "selected" : "") + ">" + esc(label) + "</option>";
       });
       html += "</select></div>";
@@ -1275,19 +1368,27 @@
     var predictions = md.predictions || {};
     var me = meId();
     var isChecked = function (pid) { return checkins.indexOf(pid) !== -1; };
-    var kickoffMs = match.date ? new Date(match.date + "T" + (match.time || "14:30") + ":00").getTime() : null;
+    // Zonder een echt ingevulde aftraptijd kunnen we het gokken niet betrouwbaar
+    // op tijd op slot zetten (voorheen viel dit stilzwijgend terug op 14:30, ook
+    // als de wedstrijd op een heel ander tijdstip begon) — dan liever helemaal
+    // niet automatisch vergrendelen, en de beheerder duidelijk vragen de tijd in
+    // te vullen.
+    var kickoffMs = match.date && match.time ? new Date(match.date + "T" + match.time + ":00").getTime() : null;
     var now = Date.now();
     var predictionsLocked = kickoffMs ? now >= kickoffMs - 60 * 1000 : false;
     var predictionsRevealed = kickoffMs ? now >= kickoffMs + 60 * 1000 : false;
 
     var html = renderMatchHeader(match);
+    if (!match.time) {
+      html += '<div class="info-note" style="margin-bottom:10px;background:#3a2e00;color:var(--gold)">' + icon("info", 12) + " Aftraptijd nog niet ingevuld" + (isAdmin() ? " — vul 'm in bij Instellingen, anders sluit het gokken niet vanzelf op tijd." : " — de beheerder moet deze nog invullen, anders sluit het gokken niet vanzelf op tijd.") + "</div>";
+    }
     html += '<div class="section-head" style="margin-top:0">Aanmelden en gokken</div>';
     html += '<div class="cta-stack">';
     html += ctaCard({
       icon: "beer", title: isChecked(me) ? "Je wilt bierdrinken" : "Ik wil bierdrinken", sub: checkins.length + " aangemeld",
       active: isChecked(me), onclick: "app.toggleCheckin('" + match.id + "','" + me + "'," + (!isChecked(me)) + ")"
     });
-    var predSub = !isChecked(me) ? "meld je eerst aan om te kunnen gokken" : predictionsLocked ? "gokken is gesloten" : "tot 1 min. vóór aftrap (" + esc(match.time || "14:30") + " uur)";
+    var predSub = !isChecked(me) ? "meld je eerst aan om te kunnen gokken" : predictionsLocked ? "gokken is gesloten" : match.time ? "tot 1 min. vóór aftrap (" + esc(match.time) + " uur)" : "gokken sluit vanzelf zodra de aftraptijd is ingevuld";
     var predExtra = "";
     var myPred = predictions[me];
     if (myPred) {
@@ -1305,44 +1406,25 @@
     });
     html += "</div>";
 
-    // Automatisch opgehaalde stand (via football-data.org, zie
-    // .github/workflows/live-score.yml) telt alleen mee als 'ie bij déze
-    // wedstrijd hoort (zelfde datum) — anders staat er nog een oude/andere
-    // wedstrijd in dat rijtje.
-    var auto = autoLiveScore && autoLiveScore.date === match.date ? autoLiveScore : null;
-    var autoLive = auto && (auto.status === "IN_PLAY" || auto.status === "PAUSED");
-    var autoFinished = auto && auto.status === "FINISHED";
-
     html += '<div class="section-head">Stand</div><div class="card">';
     if (match.finalScore) {
       html += '<div style="font-size:14px;font-weight:700">Eindstand: AZ ' + match.finalScore.home + " – " + match.finalScore.away + " " + esc(match.opponent) + "</div>";
-    } else if (autoLive || autoFinished) {
-      html += '<div style="display:flex;align-items:center;gap:8px">';
-      if (autoLive) html += '<span class="live-dot" aria-hidden="true"></span>';
-      var autoLabel = autoFinished ? "Eindstand (automatisch)" : "Live stand (automatisch)";
-      html += '<div style="font-size:14px;font-weight:700">' + autoLabel + ": AZ " + auto.home + " – " + auto.away + " " + esc(match.opponent) + "</div></div>";
-      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Opgehaald om ' + new Date(auto.updatedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + " uur bij football-data.org (elke 5 minuten ververst). " + (autoFinished ? "Dit is de stand na 90 minuten, verlenging telt niet mee." : "") + "</div>";
-      if (isAdmin() && autoFinished) {
-        var takeOverClick = "app.setMatchFinalScore('" + match.id + "', " + auto.home + ", " + auto.away + ")";
-        html += '<button class="btn-ghost-sm" style="margin-top:8px" onclick="' + esc(takeOverClick) + '">Overnemen als officiële eindstand ' + icon("chevronRight", 14) + "</button>";
-      }
     } else if (match.liveScore) {
       html += '<div style="display:flex;align-items:center;gap:8px">';
       html += '<span class="live-dot" aria-hidden="true"></span>';
       html += '<div style="font-size:14px;font-weight:700">Live stand: AZ ' + match.liveScore.home + " – " + match.liveScore.away + " " + esc(match.opponent) + "</div></div>";
       html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Bijgewerkt om ' + new Date(match.liveScore.updatedAt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + ' uur — dit vulde de beheerder handmatig in.</div>';
     } else {
-      html += '<div class="info-note" style="margin-bottom:0">Nog geen stand — die vult de beheerder handmatig in, of komt automatisch binnen zodra de wedstrijd begint. Checken, bier halen en afrekenen loopt gewoon door.</div>';
+      html += '<div class="info-note" style="margin-bottom:0">Nog geen stand — die vult de beheerder handmatig in. Checken, bier halen en afrekenen loopt gewoon door.</div>';
     }
     if (isAdmin()) {
-      html += '<div class="predict-final-row" style="margin-top:' + (match.finalScore || match.liveScore || auto ? "10px" : "8px") + '">';
+      html += '<div class="predict-final-row" style="margin-top:' + (match.finalScore || match.liveScore ? "10px" : "8px") + '">';
       html += '<span style="font-size:12.5px;color:var(--muted);font-weight:500">Live tussenstand (handmatig):</span>';
       html += '<span class="score-input-pair">';
       html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.liveScore ? match.liveScore.home : "") + '" onchange="app.setMatchLiveScore(\'' + match.id + "', this.value===''?null:(parseInt(this.value,10)||0), " + (match.liveScore ? match.liveScore.away : 0) + ')" />';
       html += "<span>–</span>";
       html += '<input type="number" min="0" class="input-score" placeholder="–" value="' + (match.liveScore ? match.liveScore.away : "") + '" onchange="app.setMatchLiveScore(\'' + match.id + "', " + (match.liveScore ? match.liveScore.home : 0) + ", this.value===''?null:(parseInt(this.value,10)||0))\" />";
       html += "</span></div>";
-      html += '<div class="info-note" style="margin-top:6px;margin-bottom:0">Alleen nodig als de automatische koppeling er niet is (bijv. bekerwedstrijden) — die heeft anders altijd voorrang zolang die bij deze wedstrijd hoort.</div>';
     }
     html += "</div>";
 
@@ -1651,6 +1733,22 @@
 
     html += renderBreakdownTable(settlement, checkins);
 
+    // Checkpoint voor de beheerder: een duidelijk vinkje dat iedereen heeft
+    // betaald/ontvangen, zodat de groep weet dat deze wedstrijd financieel
+    // "klaar" is voordat er met een volgende wedstrijd wordt begonnen. Het
+    // overzicht hierboven en hieronder blijft gewoon staan (ook via de
+    // wedstrijd-kiezer bovenaan altijd terug te vinden) — dit verandert niets
+    // aan de cijfers, het is puur een afvinkmoment.
+    if (match.settled) {
+      html += '<div class="card" style="border-color:var(--good);background:#f0fbf4;display:flex;align-items:center;justify-content:space-between;gap:10px">';
+      html += '<div style="display:flex;align-items:center;gap:8px;color:var(--good);font-weight:700;font-size:13.5px">' + icon("check", 16, ' stroke-width="3"') + "Afrekening bevestigd</div>";
+      if (isAdmin()) html += '<button class="btn-ghost-sm" onclick="app.setMatchSettled(\'' + match.id + "', false)\">Heropenen</button>";
+      html += "</div>";
+    } else if (isAdmin()) {
+      html += '<div class="card"><div class="info-note" style="margin-bottom:8px">Heeft iedereen betaald/ontvangen? Bevestig de afrekening dan hieronder — dat geeft de groep een duidelijk afvinkmoment voordat jullie met de volgende wedstrijd starten.</div>';
+      html += '<button class="btn-primary" onclick="app.setMatchSettled(\'' + match.id + '\', true)">' + icon("check", 15) + " Afrekening bevestigen</button></div>";
+    }
+
     html += '<div class="section-head">Afrekenen</div>';
     html += '<div class="info-note">Alles staat hierin al verrekend: wie welke beurten meedronk, wie statiegeld voorschoot, wie het terugkreeg en het eerlijke aandeel van kwijtgeraakte bekers. Onderlinge schulden zijn tegen elkaar weggestreept.</div>';
     if (match.finalScore && (settlement.winnerIds.length > 0 || settlement.loserIds.length > 0)) {
@@ -1811,7 +1909,7 @@
     sorted.forEach(function (m) {
       html += '<div class="manage-match-block"><div class="manage-match-row"><span>' + esc(m.date) + " · AZ – " + esc(m.opponent) + "</span>";
       html += '<button class="icon-btn" onclick="app.removeMatch(\'' + m.id + '\')" aria-label="Verwijder wedstrijd">' + icon("trash", 14) + "</button></div>";
-      html += '<div class="manage-match-detail-row"><label class="manage-match-label">Aftrap<input type="time" class="input-tiny" value="' + esc(m.time || "14:30") + '" onchange="app.updateMatchTime(\'' + m.id + '\', this.value)" /></label>';
+      html += '<div class="manage-match-detail-row"><label class="manage-match-label">Aftrap' + (m.time ? "" : ' <span style="color:var(--red);font-weight:700">nog invullen</span>') + '<input type="time" class="input-tiny" value="' + esc(m.time || "") + '" onchange="app.updateMatchTime(\'' + m.id + '\', this.value)" /></label>';
       html += '<label class="manage-match-label">Duur (min)<input type="number" min="30" step="5" class="input-tiny" style="width:60px" value="' + (m.estimatedDurationMin || 120) + '" onchange="app.updateMatchDuration(\'' + m.id + '\', parseInt(this.value,10)||120)" /></label>';
       html += '<label class="manage-match-label">Eindstand<input type="number" min="0" class="input-score" placeholder="–" value="' + (m.finalScore ? m.finalScore.home : "") + '" onchange="app.setMatchFinalScore(\'' + m.id + "', this.value===''?null:(parseInt(this.value,10)||0), " + (m.finalScore ? m.finalScore.away : 0) + ')" />';
       html += '<span style="margin:0 2px">–</span><input type="number" min="0" class="input-score" placeholder="–" value="' + (m.finalScore ? m.finalScore.away : "") + '" onchange="app.setMatchFinalScore(\'' + m.id + "', " + (m.finalScore ? m.finalScore.home : 0) + ", this.value===''?null:(parseInt(this.value,10)||0))\" />";
@@ -1824,6 +1922,27 @@
   }
 
   /* ================= top-level render ================= */
+  // Realtime-updates kunnen in een kort tijdsbestek met veel tegelijk binnen-
+  // komen (bijv. iedereen die rond hetzelfde moment "ik wil bier" tikt). Elk
+  // los binnenkomend berichtje meteen het hele scherm laten hertekenen voelt
+  // dan hortend aan en kan zelfs je eigen tik onderbreken — dus bundelen we
+  // een stortvloed aan updates tot één hertekening (120ms). Staat iemand op
+  // dat moment middenin een tekstveld te typen (bv. een gok-score), dan
+  // wachten we nóg even langer, zodat een binnenkomende update van iemand
+  // anders dat typen niet onderbreekt.
+  var renderDebounceTimer = null;
+  function scheduleRender() {
+    if (renderDebounceTimer) return;
+    renderDebounceTimer = setTimeout(flushRender, 120);
+  }
+  function flushRender() {
+    renderDebounceTimer = null;
+    var active = document.activeElement;
+    var isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && active.type !== "button";
+    if (isTyping) { renderDebounceTimer = setTimeout(flushRender, 400); return; }
+    render();
+  }
+
   function render() {
     var root = document.getElementById("app");
     if (loadError) { root.innerHTML = renderLoadError(); return; }
